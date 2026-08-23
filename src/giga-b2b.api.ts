@@ -14,6 +14,8 @@ import axios, {AxiosInstance, AxiosResponse, Method} from 'axios';
 import {GigaApiError} from "./context/giga-api.error";
 import {GigaB2bContext} from "./context/giga-b2b.context";
 import {DateTime} from "luxon";
+import {ExternalCommunicationDataResponse} from "./common.index";
+import {MarketConfigEntryStatus} from "./database/entities/enums";
 
 DateTime.local();
 
@@ -50,12 +52,18 @@ export class GigaApi extends MarketApiContextInterface {
     public async queryProducts(pageInfo?: PageInfo): Promise<QueryResponse<QueryDataResponse<ProductRecord>> | undefined> {
         const queryProductsParams: QueryProductsBody = {
             page: pageInfo?.page ? pageInfo.page++ : 1,
-            pageSize: pageInfo?.pageSize ?? 100,
+            pageSize: pageInfo?.pageSize ?? 200,
             lastUpdatedAfter: DateTime
-                .fromJSDate(this.context.market.lastImportedProductsDate)
-                .toFormat("yyyy-MM-dd"),
+                .fromJSDate(this.context.market.lastImportedProductsDate ?? new Date())
+                .toFormat("yyyy-MM-dd HH:mm:ss"),
             sort: 1,
         };
+
+        this.logger.log(
+            `Querying products: page=${queryProductsParams.page}, ` +
+            `pageSize=${queryProductsParams.pageSize}, ` +
+            `lastUpdatedAfter=${queryProductsParams.lastUpdatedAfter}`,
+        );
 
         try {
             const response: QueryResponse<QueryDataResponse<ProductRecord>> = await this.post<QueryProductsBody, QueryDataResponse<ProductRecord>>(
@@ -67,9 +75,55 @@ export class GigaApi extends MarketApiContextInterface {
                 response.data.pageInfo.end = true;
             }
 
+            this.logger.log(
+                `Queried products: page ${response.data.pageInfo.page} returned ` +
+                `${response.data.records?.length ?? 0} record(s)`,
+            );
+
             return response;
         } catch (error) {
+            this.logger.error(`Failed to query products: ${this.formatError(error)}`);
             return undefined;
+        }
+    }
+
+    public async validateMarketInstance(): Promise<ExternalCommunicationDataResponse<MarketConfigEntryStatus>> {
+        const queryProductsParams: QueryProductsBody = {
+            page: 1,
+            pageSize: 100,
+            lastUpdatedAfter: DateTime
+                .fromJSDate(new Date())
+                .toFormat("yyyy-MM-dd HH:mm:ss"),
+            sort: 1,
+        };
+
+        this.logger.log('Validating market instance');
+
+        try {
+            const validation: QueryResponse<QueryDataResponse<ProductRecord>> = await this.post<QueryProductsBody, QueryDataResponse<ProductRecord>>(
+                '/b2b-overseas-api/v1/buyer/product/skus/v1',
+                queryProductsParams
+            );
+
+            if (validation && validation.success) {
+                this.logger.log('Market instance validation succeeded');
+                return {
+                    success: true,
+                    data: MarketConfigEntryStatus.Valid
+                }
+            }
+
+            this.logger.warn('Market instance validation failed');
+            return {
+                success: false,
+                data: MarketConfigEntryStatus.Invalid
+            }
+        } catch (error) {
+            this.logger.error(`Failed to validate market instance: ${this.formatError(error)}`);
+            return {
+                success: false,
+                data: MarketConfigEntryStatus.Invalid
+            }
         }
     }
 
@@ -96,8 +150,11 @@ export class GigaApi extends MarketApiContextInterface {
     }
 
     private async queryProductLogistics<T>(uri: string, queryableSkus: string[] | ProductRecord[]): Promise<QueryResponse<T[]> | undefined> {
+        this.logger.log(`Querying ${uri} for ${queryableSkus.length} SKU(s)`);
+
         try {
             if (queryableSkus.length === 0) {
+                this.logger.warn(`Skipping ${uri}: no SKUs provided`);
                 return undefined;
             }
 
@@ -109,11 +166,16 @@ export class GigaApi extends MarketApiContextInterface {
                 body.skus = queryableSkus as string[];
             }
 
-            return await this.post<{ skus: string[] }, T[]>(
+            const response: QueryResponse<T[]> = await this.post<{ skus: string[] }, T[]>(
                 uri,
                 body
             );
+
+            this.logger.log(`${uri} returned ${response.data?.length ?? 0} result(s)`);
+
+            return response;
         } catch (error) {
+            this.logger.error(`Failed to query ${uri}: ${this.formatError(error)}`);
             return undefined;
         }
     }
@@ -144,6 +206,8 @@ export class GigaApi extends MarketApiContextInterface {
         const signature: GigaApiSignature = this.context.generateApiSign(endpoint)
         let response: AxiosResponse<QueryResponse<Response>>;
 
+        const start: number = Date.now();
+
         try {
             response = await this.instance.request<QueryResponse<Response>>({
                 url: uri,
@@ -160,6 +224,10 @@ export class GigaApi extends MarketApiContextInterface {
         } catch (e) {
             throw this.toGigaApiError(e, uri)
         }
+
+        this.logger.log(
+            `GigaApi ${method} ${uri} completed in ${Date.now() - start}ms (HTTP ${response.status})`,
+        );
 
         return this.unwrap(response.data, uri)
     }
@@ -196,11 +264,16 @@ export class GigaApi extends MarketApiContextInterface {
         )
     }
 
+    private formatError(error: unknown): string {
+        return error instanceof Error ? error.message : String(error);
+    }
+
     private unwrap<Response>(
         envelope: QueryResponse<Response>,
         uri: string,
     ): QueryResponse<Response> {
         if (!envelope) {
+            this.logger.error(`Empty response body from ${uri}`);
             throw new GigaApiError(`Empty response body from ${uri}`, uri)
         }
 

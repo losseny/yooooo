@@ -1,7 +1,7 @@
 import {GigaB2bService} from "./giga-b2b.service";
 import 'reflect-metadata';
 import {GigaB2bContext} from "./context/giga-b2b.context";
-import {ExternalMarketCommunicationConfig} from "./common.index";
+import {ExternalMarketCommunicationConfig, LogisticsAvailability} from "./common.index";
 import {Market} from "./database/entities/market.entity";
 import {MarketConfigEntry} from "./database/entities/market-config-entry.entity";
 import {HttpRetryService} from "./infrastructure/http-retry/http-retry.service";
@@ -31,14 +31,29 @@ DateTime.local();
     const retry: HttpRetryService = new HttpRetryService(console);
     const gigaService: GigaB2bService = new GigaB2bService(context, retry);
 
-    for await (const details of gigaService.importExternalMarketProducts()) {
-        console.log()
-        console.log()
-
-        console.log(JSON.stringify(details, null, 2));
-        console.log()
-        console.log()
-        console.log("=================================================================================")
+    const validation = await gigaService.validateExternalMarketInstance();
+    if (!validation || !validation.success) {
+        throw new Error("Validation invalid")
     }
 
+    const availability: LogisticsAvailability[] = await gigaService.productAvailableOnMarket([
+        'OT2801A'
+    ]);
+
+
+    // for await (const details of gigaService.importExternalMarketProducts()) {
+    //     const products: Product[] = details.slice(0, 2).map((detail) => detail.products).flat();
+    //
+    //     const updates: ExternalMarketProductUpdate[] = await gigaService.updateProductsFromExternalMarket(products);
+    //
+    //
+    //     console.log()
+    //     console.log()
+    //
+    //     console.log(JSON.stringify(updates, null, 2));
+    //     console.log(JSON.stringify(updates[0].update.price.available, null, 2));
+    //     console.log()
+    //     console.log()
+    //     console.log("=================================================================================")
+    // }
 })()

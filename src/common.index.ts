@@ -3,7 +3,7 @@ import {Market} from "./database/entities/market.entity";
 import {MarketConfigEntry} from "./database/entities/market-config-entry.entity";
 import {Order} from "./database/entities/order.entity";
 import {LineItem} from "./database/entities/line-item.entity";
-import {OrderVariantStatus, RemoteDocType} from "./database/entities/enums";
+import {LogisticsOverviewAvailability, OrderVariantStatus, RemoteDocType} from "./database/entities/enums";
 import {ProductCategory} from "./database/entities/product-category.entity";
 import {OrderVariant} from "./database/entities/order-variant.entity";
 import {OrderVariantLogistic} from "./database/entities/order-variant-logistic.entity";
@@ -22,11 +22,13 @@ export class LogisticsAvailability {
     sku: string | undefined;
     available: boolean;
     market: Market;
+    availability: LogisticsOverviewAvailability
 
-    constructor(sku: string | undefined, available: boolean, market: Market) {
+    constructor(sku: string | undefined, available: boolean, market: Market, availability: LogisticsOverviewAvailability) {
         this.sku = sku;
         this.available = available;
         this.market = market;
+        this.availability = availability;
     }
 }
 
@@ -38,8 +40,9 @@ export class LogisticsOverview<T> extends LogisticsAvailability {
         total: T,
         market: Market,
         available: boolean = false,
+        overviewAvailability: LogisticsOverviewAvailability = LogisticsOverviewAvailability.UNKNOWN
     ) {
-        super(sku, available, market);
+        super(sku, available, market, overviewAvailability);
         this.total = total;
     }
 }

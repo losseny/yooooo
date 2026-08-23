@@ -1,5 +1,13 @@
 import {GigaApi} from "./giga-b2b.api";
-import {ProductDetail, ProductInventory, ProductPrice, ProductRecord, QueryDataResponse, QueryResponse} from "./types";
+import {
+    GigaApiErrorCodes,
+    ProductDetail,
+    ProductInventory,
+    ProductPrice,
+    ProductRecord,
+    QueryDataResponse,
+    QueryResponse
+} from "./types";
 import {GigaB2bContext} from "./context/giga-b2b.context";
 import {HttpRetryService} from "./infrastructure/http-retry/http-retry.service";
 import {
@@ -15,7 +23,7 @@ import {
 } from "./common.index";
 import {Product} from "./database/entities/product.entity";
 import {OrderVariant} from "./database/entities/order-variant.entity";
-import {MarketConfigEntryStatus, RemoteDocType} from "./database/entities/enums";
+import {LogisticsOverviewAvailability, MarketConfigEntryStatus, RemoteDocType} from "./database/entities/enums";
 import axios from "axios";
 import {ProductCategory} from "./database/entities/product-category.entity";
 import {ProductImage} from "./database/entities/product-image.entity";
@@ -34,35 +42,50 @@ export class GigaB2bService {
 
 
     public async* importExternalMarketProducts(): AsyncGenerator<ProductCategoryBundle[]> {
+        const marketPlace: string = this.context.market.marketPlace;
         let availableProducts: QueryResponse<QueryDataResponse<ProductRecord>> | undefined = undefined;
+        let page: number = 0;
+
+        this.logger.log(`Starting product import for market ${marketPlace}`);
 
         while (true) {
             try {
                 availableProducts = await this.api.queryProducts(availableProducts?.data.pageInfo);
+                page++;
 
                 if (!availableProducts) {
+                    this.logger.warn(`No product data returned for page ${page}; stopping import for market ${marketPlace}`);
                     yield [];
                     break;
                 }
 
-                const productDetails: QueryResponse<ProductDetail[]> | undefined = await this.api.queryProductsDetails(availableProducts.data.records);
+                const records: ProductRecord[] = availableProducts.data.records ?? [];
+                this.logger.log(`Fetched page ${page} with ${records.length} product records from market ${marketPlace}`);
+
+                const productDetails: QueryResponse<ProductDetail[]> | undefined = await this.api.queryProductsDetails(records.slice(0, 3));
                 if (!productDetails) {
+                    this.logger.warn(`No product details returned for page ${page} on market ${marketPlace}`);
                     yield [];
                 } else {
+                    this.logger.log(`Fetched details for ${productDetails.data?.length ?? 0} products on page ${page} of market ${marketPlace}`);
                     yield this.mapMarketProductsToBundles(productDetails.data);
                 }
 
                 if (availableProducts.data.pageInfo.end) {
-                    break
+                    this.logger.log(`Reached last page (${page}) for market ${marketPlace}; import complete`);
+                    break;
                 }
 
             } catch (e) {
+                this.logger.error(`Failed to import products on page ${page} for market ${marketPlace}: ${this.formatError(e)}`);
                 yield [];
                 if (!availableProducts) {
                     break;
                 }
             }
         }
+
+        this.logger.log(`Product import finished for market ${marketPlace} after ${page} page(s)`);
     }
 
     async downloadMarketProductsAttachments(products: Product[], pictureLimit: number = 1): Promise<ExternalCommunicationAttachment<Product>[]> {
@@ -72,13 +95,14 @@ export class GigaB2bService {
         }
 
         this.logger.log(
-            `Downloading attachments for ${this.context.market.marketPlace}`,
+            `Downloading attachments for ${products.length} product(s) on market ${this.context.market.marketPlace}`,
         );
 
         const skus: string[] = this.extractSkus(products)
         const productDetails: QueryResponse<ProductDetail[]> | undefined = await this.api.queryProductsDetails(skus);
 
         if (!productDetails || productDetails.data.length === 0) {
+            this.logger.warn('No product details returned; no attachments downloaded');
             return []
         }
 
@@ -112,12 +136,10 @@ export class GigaB2bService {
                     data: [...images, ...manuals],
                 });
                 i++;
-            } catch (e: any) {
-                if (e && e?.message) {
-                    this.logger.error(
-                        `Failed to download of attachments for product ${product.sku}. Error: ${e.message}`,
-                    );
-                }
+            } catch (e) {
+                this.logger.error(
+                    `Failed to download attachments for product ${product.sku}: ${this.formatError(e)}`,
+                );
                 result.push({
                     context: product,
                     data: [...images, ...manuals],
@@ -125,42 +147,50 @@ export class GigaB2bService {
             }
         }
 
+        this.logger.log(
+            `Downloaded attachments for ${result.length} product(s) on market ${this.context.market.marketPlace}`,
+        );
+
         return result;
     }
 
-    exportOrders(orderVariants: OrderVariant[]): Promise<ExternalCommunicationDataResponse<OrderVariant>[]> {
-        return Promise.resolve([]);
-    }
 
     async importGivenMarketSkus(skus: string[]): Promise<ProductCategoryBundle[]> {
-        const productDetails: QueryResponse<ProductDetail[]> | undefined = await this.api.queryProductsDetails(skus);
-        if (!productDetails || productDetails.data.length === 0) {
-            return [];
+        this.logger.log(`Importing ${skus.length} specific SKUs from market ${this.context.market.marketPlace}`);
+
+        // TODO: Maybe pagination??
+        const result: ProductCategoryBundle[] = [];
+        const totalPages: number = skus.length / 200;
+        let page: number = 1;
+
+        while (page < totalPages) {
+            const productDetails: QueryResponse<ProductDetail[]> | undefined = await this.api.queryProductsDetails(skus);
+            if (!productDetails || productDetails.data.length === 0) {
+                this.logger.warn(`No product details returned for the ${skus.length} requested SKUs`);
+                return [];
+            }
+
+            this.logger.log(`Mapped ${productDetails.data.length} product(s) for the requested SKUs (page ${page}/${Math.ceil(totalPages)})`);
+            result.push(...this.mapMarketProductsToBundles(productDetails.data))
+            page++;
         }
 
-        return this.mapMarketProductsToBundles(productDetails.data);
-    }
-
-    ordersStatusValidation(orderVariants: OrderVariant[]): Promise<ExternalCommunicationDataResponse<ExternalOrderStatusDetails>[]> {
-        return Promise.resolve([]);
-    }
-
-    productAvailableOnMarket(skus: string[]): Promise<LogisticsAvailability[]> {
-        return Promise.resolve([]);
-    }
-
-    queryOrderLogistics(orderVariants: OrderVariant[]): Promise<ExternalCommunicationDataResponse<ExternalOrderLogisticsDetails>[]> {
-        return Promise.resolve([]);
+        this.logger.log(`Imported ${result.length} bundle(s) for ${skus.length} requested SKU(s)`);
+        return result;
     }
 
     async updateProductsFromExternalMarket(products: Product[]): Promise<ExternalMarketProductUpdate[]> {
         const updates: ExternalMarketProductUpdate[] = [];
         const skus: string[] = this.extractSkus(products);
 
+        this.logger.log(`Updating ${skus.length} product(s) from market ${this.context.market.marketPlace}`);
+
         const prices: LogisticsOverview<string>[] = await this.processProductPrice(skus);
         const inventories: LogisticsOverview<number>[] = await this.processProductInventory(skus)
 
+
         if (!prices || !inventories) {
+            this.logger.warn('No price or inventory data available; aborting product update');
             return [];
         }
 
@@ -176,16 +206,94 @@ export class GigaB2bService {
             updates.push(update);
         }
 
+        this.logger.log(`Computed ${updates.length} product update(s) from market ${this.context.market.marketPlace}`);
         return updates;
     }
 
-    validateExternalMarketInstance(): Promise<ExternalCommunicationDataResponse<MarketConfigEntryStatus> | undefined> {
-        return Promise.resolve(undefined);
+    async validateExternalMarketInstance(): Promise<ExternalCommunicationDataResponse<MarketConfigEntryStatus>> {
+        this.logger.log(`Validating market instance for ${this.context.market.marketPlace}`);
+
+        const result: ExternalCommunicationDataResponse<MarketConfigEntryStatus> = await this.api.validateMarketInstance();
+
+        this.logger.log(
+            `Market instance validation for ${this.context.market.marketPlace}: ` +
+            `${result.success ? 'valid' : 'invalid'} (${result.data})`,
+        );
+
+        return result;
     }
+
+    async productAvailableOnMarket(skus: string[]): Promise<LogisticsAvailability[]> {
+        this.logger.log(`Checking availability for ${skus.length} SKU(s) on market ${this.context.market.marketPlace}`);
+
+        try {
+            let availability: LogisticsAvailability[] = [];
+            const details: QueryResponse<ProductDetail[]> | undefined = await this.api.queryProductsDetails(skus)
+            if (!details || !details.data.length) {
+                this.logger.warn('No product details returned; falling back to price lookup');
+
+                const prices: QueryResponse<ProductPrice[]> = await this.api.queryProductPrices(skus);
+                if (!prices || !prices.success || prices.code === GigaApiErrorCodes.B20003) {
+                    this.logger.warn(`Availability could not be determined for ${skus.length} SKU(s); marking UNKNOWN`);
+                    return skus.map(
+                        (sku: string): LogisticsAvailability =>
+                            new LogisticsAvailability(
+                                sku,
+                                false,
+                                this.context.market,
+                                LogisticsOverviewAvailability.UNKNOWN
+                            )
+                    )
+                }
+            }
+
+            availability = details.data.map(
+                (detail: ProductDetail): LogisticsAvailability =>
+                    new LogisticsAvailability(
+                        detail.sku,
+                        detail.skuAvailable,
+                        this.context.market,
+                        detail.skuAvailable ? LogisticsOverviewAvailability.AVAILABLE : LogisticsOverviewAvailability.UNAVAILABLE
+                    )
+            )
+
+            this.logger.log(`Determined availability for ${availability.length} product(s) on market ${this.context.market.marketPlace}`);
+            return availability;
+        } catch (e) {
+            this.logger.error(`Failed to determine availability: ${this.formatError(e)}`);
+            return skus.map(
+                (sku: string) =>
+                    new LogisticsAvailability(
+                        sku,
+                        false,
+                        this.context.market,
+                        LogisticsOverviewAvailability.UNKNOWN
+                    )
+            )
+        }
+    }
+
+
+    exportOrders(orderVariants: OrderVariant[]): Promise<ExternalCommunicationDataResponse<OrderVariant>[]> {
+        this.logger.warn(`exportOrders is not implemented (${orderVariants.length} order variant(s) received)`);
+        return Promise.resolve([]);
+    }
+
+    ordersStatusValidation(orderVariants: OrderVariant[]): Promise<ExternalCommunicationDataResponse<ExternalOrderStatusDetails>[]> {
+        this.logger.warn(`ordersStatusValidation is not implemented (${orderVariants.length} order variant(s) received)`);
+        return Promise.resolve([]);
+    }
+
+    queryOrderLogistics(orderVariants: OrderVariant[]): Promise<ExternalCommunicationDataResponse<ExternalOrderLogisticsDetails>[]> {
+        this.logger.warn(`queryOrderLogistics is not implemented (${orderVariants.length} order variant(s) received)`);
+        return Promise.resolve([]);
+    }
+
 
     private findProductLogistics<T extends string | number>(sku: string, overview: LogisticsOverview<T>[], defaultValue: T) {
         const logistic: LogisticsOverview<T> | undefined = overview.find((price: LogisticsOverview<T>): boolean => price.sku === sku);
         if (!logistic) {
+            this.logger.warn(`No logistics data found for SKU ${sku}; using default value '${defaultValue}'`);
             return new LogisticsOverview<T>(
                 sku,
                 defaultValue,
@@ -207,6 +315,7 @@ export class GigaB2bService {
                             0,
                             this.context.market,
                             true,
+                            LogisticsOverviewAvailability.AVAILABLE
                         ),
                 );
             }
@@ -215,12 +324,14 @@ export class GigaB2bService {
                 (inventory: ProductInventory) =>
                     new LogisticsOverview<number>(
                         inventory.sku,
-                        0, // TODO: check which is the most accurate stock value
+                        inventory.sellerInventoryInfo.sellerAvailableInventory, // TODO: check which is the most accurate stock value
                         this.context.market,
-                        true // TODO: figure out when stock is not available. Maybe nextArrivalInventory again or error code B50004??
+                        true, // TODO: figure out when stock is not available. Maybe nextArrivalInventory again or error code B50004??
+                        LogisticsOverviewAvailability.AVAILABLE
                     )
             )
         } catch (error) {
+            this.logger.error(`Failed to query product inventory: ${this.formatError(error)}`);
             return skus.map(
                 (sku: string): LogisticsOverview<number> =>
                     new LogisticsOverview<number>(
@@ -239,7 +350,7 @@ export class GigaB2bService {
             const prices: QueryResponse<ProductPrice[]> | undefined = await this.api.queryProductPrices(skus);
 
             if (!prices || prices.data.length <= 0) {
-                console.log(`No price available: ${prices}`);
+                this.logger.warn(`No price available for ${skus.length} SKU(s)`);
                 return [];
             }
 
@@ -251,6 +362,7 @@ export class GigaB2bService {
                             '0',
                             this.context.market,
                             false,
+                            LogisticsOverviewAvailability.UNAVAILABLE
                         );
                     }
                     if (!result.skuAvailable) {
@@ -259,15 +371,26 @@ export class GigaB2bService {
                             '0',
                             this.context.market,
                             false,
+                            LogisticsOverviewAvailability.UNAVAILABLE
                         );
                     }
 
                     if (Number(result.price) === 0) {
+                        if (result.skuAvailable) {
+                            return new LogisticsOverview<string>(
+                                result.sku,
+                                '0',
+                                this.context.market,
+                                result.skuAvailable,
+                                LogisticsOverviewAvailability.AVAILABLE
+                            );
+                        }
                         return new LogisticsOverview<string>(
                             result.sku,
                             '0',
                             this.context.market,
-                            true,
+                            false,
+                            LogisticsOverviewAvailability.UNAVAILABLE
                         );
                     }
 
@@ -277,6 +400,7 @@ export class GigaB2bService {
                             '0',
                             this.context.market,
                             false,
+                            LogisticsOverviewAvailability.UNAVAILABLE
                         );
                     }
 
@@ -284,23 +408,29 @@ export class GigaB2bService {
 
                     return new LogisticsOverview<string>(
                         result.sku,
-                        String(calculatedPrice * 1.07), // TODO: research! What does this 1.07 mean?
+                        (calculatedPrice * 1.07).toFixed(2), // TODO: research! What does this 1.07 mean?
                         this.context.market,
                         result.skuAvailable,
+                        result.skuAvailable ? LogisticsOverviewAvailability.AVAILABLE : LogisticsOverviewAvailability.UNAVAILABLE
                     );
                 },
             );
         } catch (error) {
+            this.logger.error(`Failed to query product price: ${this.formatError(error)}`);
             return skus.map(
                 (sku: string): LogisticsOverview<string> =>
                     new LogisticsOverview<string>(
                         sku,
                         '0',
                         this.context.market,
-                        true,
+                        false,
                     ),
             );
         }
+    }
+
+    private formatError(error: unknown): string {
+        return error instanceof Error ? error.message : String(error);
     }
 
     private extractSkus(products: Product[]): string[] {

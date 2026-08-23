@@ -1,8 +1,6 @@
-import {instanceToPlain, plainToInstance} from "class-transformer";
+import {plainToInstance} from "class-transformer";
 import {Product} from "./database/entities/product.entity";
-import {CreateProductDto} from "./product/dto/create-product.dto";
-import {CreateProductVariantDto} from "./product-variant/dto/create-product-variant.dto";
-import 'reflect-metadata';
+import {ProductVariant} from "./database/entities/product-variant.entity";
 
 export interface GigaApiSignature {
     signature: string;
@@ -56,123 +54,75 @@ export interface ProductRecord {
 }
 
 export class ProductDetail {
-    sku!: string;
-
-    mpn!: string;
-
-    weightUnit!: string;
-
-    lengthUnit!: string;
-
-    weight!: number | undefined;
-
-    length!: number | null | undefined;
-
-    width!: number | null | undefined;
-
-    height!: number | null | undefined;
-
-    weightKg!: number | null | undefined;
-
-    lengthCm!: number | null | undefined;
-
-    widthCm!: number | null | undefined;
-
-    heightCm!: number | null | undefined;
-
-    productName!: string;
-
-    description!: string;
-
-    characteristics!: string[];
-
-    imageUrls!: string[];
-
-    mainImageUrl!: string;
-
-    productVideoUrl!: string;
-
-    categoryCode!: number;
-
-    category!: string;
-
-    comboFlag!: boolean;
-
-    overSizeFlag!: boolean;
-
-    isLGP!: boolean;
-
-    partFlag!: boolean;
-
-    upc!: string;
-
-    customized!: string;
-
-    placeOfOrigin!: string;
-
-    lithiumBatteryContained!: string;
-
-    assembledLength!: string;
-
-    assembledWidth!: string;
-
-    assembledHeight!: string;
-
-    assembledWeight!: string;
-
-    assembledLengthUnit!: string;
-
-    assembledWeightUnit!: string;
-
-    customList!: unknown[];
-
-    associateProductList!: unknown[];
-
-    certificationList!: unknown[];
-
-    fileUrls!: string[];
-
-    videoUrls!: string[];
-
-    afterSalesPolicy!: string;
-
-    attributes!: Record<string, string>;
-
-    whiteLabel!: string;
-
-    comboInfo!: ComboInfo[];
-
-    firstArrivalDate!: string;
-
-    returnRate!: string;
-
-    sellerInfo!: SellerInfo;
-
-    skuAvailable!: boolean;
-
-    unAvailablePlatform!: string[];
-
-    newArrivalFlag!: boolean;
+    sku: string;
+    mpn: string;
+    weightUnit: string;
+    lengthUnit: string;
+    weight: number | null;
+    length: number | null;
+    width: number | null;
+    height: number | null;
+    weightKg: number | null;
+    lengthCm: number | null;
+    widthCm: number | null;
+    heightCm: number | null;
+    productName: string;
+    description: string;
+    characteristics: string[];
+    imageUrls: string[];
+    mainImageUrl: string;
+    productVideoUrl: string;
+    categoryCode: number;
+    category: string;
+    comboFlag: boolean;
+    overSizeFlag: boolean;
+    isLGP: boolean;
+    partFlag: boolean;
+    upc: string;
+    customized: string;
+    placeOfOrigin: string;
+    lithiumBatteryContained: string;
+    assembledLength: string;
+    assembledWidth: string;
+    assembledHeight: string;
+    assembledWeight: string;
+    assembledLengthUnit: string;
+    assembledWeightUnit: string;
+    customList: unknown[];
+    associateProductList: unknown[];
+    certificationList: unknown[];
+    fileUrls: string[];
+    videoUrls: string[];
+    afterSalesPolicy: string;
+    attributes: Record<string, string>;
+    whiteLabel: string;
+    comboInfo: ComboInfo[];
+    firstArrivalDate: string;
+    returnRate: string;
+    sellerInfo: SellerInfo;
+    skuAvailable: boolean;
+    unAvailablePlatform: string[];
+    newArrivalFlag: boolean;
 
     static toProduct(marketProduct: ProductDetail): Product {
-        const dto: CreateProductDto = plainToInstance(
-            CreateProductDto,
-            instanceToPlain(marketProduct),
+        const dto: Product = plainToInstance(
+            Product,
+            marketProduct,
             {
                 excludeExtraneousValues: true,
             },
         );
-        const entity: Product = dto.toEntity();
+        const entity: Product = dto
 
-        const variant: CreateProductVariantDto = plainToInstance(
-            CreateProductVariantDto,
-            instanceToPlain(marketProduct),
+        const variant: ProductVariant = plainToInstance(
+            ProductVariant,
+            marketProduct,
             {
                 excludeExtraneousValues: true,
             },
         );
 
-        entity.variants = variant.toEntity();
+        entity.variants = variant
 
         // TODO: think of a better way to handle this
         entity.variants.title =
@@ -184,6 +134,7 @@ export class ProductDetail {
 
         return entity;
     }
+
 }
 
 export function isEmptyOrWhitespace(str: string) {
@@ -334,4 +285,8 @@ export interface ProductPrice {
     skuAvailable: boolean;
     futurePrice: FuturePrice[];
     sku: string;
+}
+
+export enum GigaApiErrorCodes {
+    B20003 = 'B20003'
 }
