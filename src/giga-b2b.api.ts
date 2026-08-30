@@ -1,5 +1,7 @@
 import {
     GigaApiSignature,
+    OrderStatusInfo,
+    OrderTrackInfo,
     PageInfo,
     ProductDetail,
     ProductInventory,
@@ -8,7 +10,8 @@ import {
     QueryDataResponse,
     queryLogisticsBody,
     QueryProductsBody,
-    QueryResponse
+    QueryResponse,
+    ShipmentOrder
 } from "./types";
 import axios, {AxiosInstance, AxiosResponse, Method} from 'axios';
 import {GigaApiError} from "./context/giga-api.error";
@@ -48,6 +51,7 @@ export class GigaApi extends MarketApiContextInterface {
 
         this.logger.log('GigaB2B context initialized')
     }
+
 
     public async queryProducts(pageInfo?: PageInfo): Promise<QueryResponse<QueryDataResponse<ProductRecord>> | undefined> {
         const queryProductsParams: QueryProductsBody = {
@@ -149,6 +153,51 @@ export class GigaApi extends MarketApiContextInterface {
         );
     }
 
+    public async queryOrderStatus(orderNumbers: string[]): Promise<QueryResponse<OrderStatusInfo[]>> {
+        this.logger.log(`Querying order status for ${orderNumbers.length} order number(s)`);
+
+        const body: { orderNo: string[] } = {
+            orderNo: orderNumbers
+        }
+        const response: QueryResponse<OrderStatusInfo[]> = await this.post<{ orderNo: string[] }, OrderStatusInfo[]>(
+            '/b2b-overseas-api/v1/buyer/order/status/v1',
+            body
+        );
+
+        this.logger.log(`Order status query returned ${response?.data?.length ?? 0} result(s)`);
+
+        return response;
+    }
+
+    async queryOrderLogistics(orderNumbers: string[]): Promise<QueryResponse<OrderTrackInfo[]>> {
+        this.logger.log(`Querying order logistics for ${orderNumbers.length} order number(s)`);
+
+        const body: { orderNo: string[] } = {
+            orderNo: orderNumbers
+        }
+        const response: QueryResponse<OrderTrackInfo[]> = await this.post<{ orderNo: string[] }, OrderTrackInfo[]>(
+            '/b2b-overseas-api/v1/buyer/order/track-no/v1',
+            body
+        );
+
+        this.logger.log(`Order logistics query returned ${response?.data?.length ?? 0} result(s)`);
+
+        return response;
+    }
+
+    async exportShipmentOrder(shipmentOrder: ShipmentOrder): Promise<QueryResponse<void>> {
+        this.logger.log(`Exporting shipment order ${shipmentOrder.orderNo}`);
+
+        const response: QueryResponse<void> = await this.post<ShipmentOrder, void>(
+            '/b2b-overseas-api/v1/buyer/order/dropShip-sync/v1',
+            shipmentOrder
+        );
+
+        this.logger.log(`Shipment order ${shipmentOrder.orderNo} exported (success: ${response?.success})`);
+
+        return response;
+    }
+
     private async queryProductLogistics<T>(uri: string, queryableSkus: string[] | ProductRecord[]): Promise<QueryResponse<T[]> | undefined> {
         this.logger.log(`Querying ${uri} for ${queryableSkus.length} SKU(s)`);
 
@@ -187,7 +236,7 @@ export class GigaApi extends MarketApiContextInterface {
     }
 
     private async post<B, T>(endpoint: string, body?: B): Promise<QueryResponse<T>> {
-        return this.request<T>('POST', endpoint, body);
+        return this.request<T, B>('POST', endpoint, body);
     }
 
     private async patch<B, T>(endpoint: string, body: B): Promise<QueryResponse<T>> {
@@ -279,5 +328,4 @@ export class GigaApi extends MarketApiContextInterface {
 
         return envelope;
     }
-
 }

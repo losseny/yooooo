@@ -1,12 +1,17 @@
 import {GigaApi} from "./giga-b2b.api";
 import {
     GigaApiErrorCodes,
+    OrderStatusInfo,
+    OrderTrackInfo,
     ProductDetail,
     ProductInventory,
     ProductPrice,
     ProductRecord,
     QueryDataResponse,
-    QueryResponse
+    QueryResponse,
+    ShipmentOrder,
+    ShipTrackInfo,
+    toOrderVariantLogisticEntity
 } from "./types";
 import {GigaB2bContext} from "./context/giga-b2b.context";
 import {HttpRetryService} from "./infrastructure/http-retry/http-retry.service";
@@ -23,10 +28,16 @@ import {
 } from "./common.index";
 import {Product} from "./database/entities/product.entity";
 import {OrderVariant} from "./database/entities/order-variant.entity";
-import {LogisticsOverviewAvailability, MarketConfigEntryStatus, RemoteDocType} from "./database/entities/enums";
+import {
+    LogisticsOverviewAvailability,
+    MarketConfigEntryStatus,
+    OrderVariantStatus,
+    RemoteDocType
+} from "./database/entities/enums";
 import axios from "axios";
 import {ProductCategory} from "./database/entities/product-category.entity";
 import {ProductImage} from "./database/entities/product-image.entity";
+import {OrderVariantLogistic} from "./database/entities/order-variant-logistic.entity";
 
 export class GigaB2bService {
     private readonly api: GigaApi;
@@ -274,21 +285,225 @@ export class GigaB2bService {
     }
 
 
-    exportOrders(orderVariants: OrderVariant[]): Promise<ExternalCommunicationDataResponse<OrderVariant>[]> {
-        this.logger.warn(`exportOrders is not implemented (${orderVariants.length} order variant(s) received)`);
-        return Promise.resolve([]);
+    async exportOrders(orderVariants: OrderVariant[]): Promise<ExternalCommunicationDataResponse<OrderVariant>[]> {
+        const results: ExternalCommunicationDataResponse<OrderVariant>[] = [];
+
+        this.logger.log(`Exporting ${orderVariants.length} order variant(s) to market ${this.context.market.marketPlace}`);
+
+        for (const orderVariant of orderVariants) {
+            try {
+                const shipmentOrder: ShipmentOrder = new ShipmentOrder(orderVariant);
+
+                let response: QueryResponse<void> = await this.api.exportShipmentOrder(shipmentOrder,);
+
+                const result: ExternalCommunicationDataResponse<OrderVariant> =
+                    this.processOrderSyncResponse(response, orderVariant);
+                results.push(result);
+
+                this.logger.log(
+                    `Exported order variant ${orderVariant.id}: ${result.success ? 'success' : 'failed'} (${result.msg})`,
+                );
+            } catch (e) {
+                this.logger.error(
+                    `Failed to export order variant ${orderVariant.id}: ${this.formatError(e)}`,
+                );
+                results.push({
+                    success: false,
+                    data: orderVariant,
+                    msg: this.formatError(e),
+                });
+            }
+        }
+
+        this.logger.log(`Exported ${results.length} order variant(s) to market ${this.context.market.marketPlace}`);
+        return results;
     }
 
-    ordersStatusValidation(orderVariants: OrderVariant[]): Promise<ExternalCommunicationDataResponse<ExternalOrderStatusDetails>[]> {
-        this.logger.warn(`ordersStatusValidation is not implemented (${orderVariants.length} order variant(s) received)`);
-        return Promise.resolve([]);
+
+    async ordersStatusValidation(orderVariants: OrderVariant[]): Promise<ExternalCommunicationDataResponse<ExternalOrderStatusDetails>[]> {
+        this.logger.log(`Validating status for ${orderVariants.length} order variant(s) on market ${this.context.market.marketPlace}`);
+
+        try {
+            const results: ExternalCommunicationDataResponse<ExternalOrderStatusDetails>[] = [];
+
+            const statuses: QueryResponse<OrderStatusInfo[]> | undefined = await this.api.queryOrderStatus(orderVariants.map((orderVariant: OrderVariant): string => orderVariant.order.order_number));
+
+            if (!statuses || statuses.data.length === 0) {
+                this.logger.warn('No order status data returned; no statuses validated');
+                return []
+            }
+            for (const status of statuses.data) {
+                try {
+                    const orderVariant: OrderVariant = orderVariants.find((variant: OrderVariant): boolean => variant.order.order_number === status.orderNo);
+                    if (!orderVariant) {
+                        this.logger.warn(`No matching order variant found for order number ${status.orderNo}`);
+                        continue
+                    }
+
+                    let orderStatusNumber: number = Number(status.orderStatus);
+
+                    switch (orderStatusNumber) {
+                        case 1: {
+                            const orderStatusDetails: ExternalOrderStatusDetails = {
+                                orderVariant: orderVariant,
+                                status: OrderVariantStatus.Synchronized,
+                            };
+                            results.push({
+                                success: true,
+                                data: orderStatusDetails,
+                                msg: OrderVariantStatus.Synchronized,
+                            });
+                            break;
+                        }
+                        case 2: {
+                            const orderStatusDetails: ExternalOrderStatusDetails = {
+                                orderVariant: orderVariant,
+                                status: OrderVariantStatus.Being_Processed,
+                            };
+                            results.push({
+                                success: true,
+                                data: orderStatusDetails,
+                                msg: OrderVariantStatus.Being_Processed,
+                            });
+                            break;
+                        }
+                        case 32: {
+                            const orderStatusDetails: ExternalOrderStatusDetails = {
+                                orderVariant: orderVariant,
+                                status: OrderVariantStatus.Complete,
+                            };
+                            results.push({
+                                success: true,
+                                data: orderStatusDetails,
+                                msg: OrderVariantStatus.Complete,
+                            });
+                            break;
+                        }
+                        case 16: {
+                            const orderStatusDetails: ExternalOrderStatusDetails = {
+                                orderVariant: orderVariant,
+                                status: OrderVariantStatus.Cancelled,
+                            };
+                            results.push({
+                                success: true,
+                                data: orderStatusDetails,
+                                msg: OrderVariantStatus.Cancelled,
+                            });
+                            break;
+                        }
+                        case 4: {
+                            const orderStatusDetails: ExternalOrderStatusDetails = {
+                                orderVariant: orderVariant,
+                                status: OrderVariantStatus.On_hold,
+                            };
+                            results.push({
+                                success: true,
+                                data: orderStatusDetails,
+                                msg: OrderVariantStatus.On_hold,
+                            });
+                            break;
+                        }
+                        default: {
+                            const orderStatusDetails: ExternalOrderStatusDetails = {
+                                orderVariant: orderVariant,
+                                status: OrderVariantStatus.Unknown,
+                            };
+                            results.push({
+                                success: true,
+                                data: orderStatusDetails,
+                                msg: OrderVariantStatus.Unknown,
+                            });
+                            break;
+                        }
+                    }
+                } catch (error) {
+                    this.logger.error(`Failed to validate status for order ${status.orderNo}: ${this.formatError(error)}`);
+                }
+            }
+            this.logger.log(`Validated status for ${results.length} order variant(s)`);
+            return results;
+        } catch (e) {
+            this.logger.error(`Failed to query order statuses: ${this.formatError(e)}`);
+            return []
+        }
     }
 
-    queryOrderLogistics(orderVariants: OrderVariant[]): Promise<ExternalCommunicationDataResponse<ExternalOrderLogisticsDetails>[]> {
-        this.logger.warn(`queryOrderLogistics is not implemented (${orderVariants.length} order variant(s) received)`);
-        return Promise.resolve([]);
+    async queryOrderLogistics(orderVariants: OrderVariant[]): Promise<ExternalCommunicationDataResponse<ExternalOrderLogisticsDetails>[]> {
+        this.logger.log(`Querying logistics for ${orderVariants.length} order variant(s) on market ${this.context.market.marketPlace}`);
+
+        try {
+            const results: ExternalCommunicationDataResponse<ExternalOrderLogisticsDetails>[] = [];
+
+            const orderTrackers: QueryResponse<OrderTrackInfo[]> | undefined = await this.api.queryOrderLogistics(orderVariants.map((orderVariant: OrderVariant): string => orderVariant.order.order_number));
+            if (!orderTrackers || orderTrackers.data.length === 0) {
+                this.logger.warn('No order tracking data returned; no logistics queried');
+                return []
+            }
+
+            for (const tracker of orderTrackers.data) {
+                try {
+                    const orderVariant: OrderVariant = orderVariants.find((variant: OrderVariant): boolean => variant.order.order_number === tracker.orderNo);
+
+                    if (!orderVariant) {
+                        this.logger.warn(`No matching order variant found for order number ${tracker.orderNo}`);
+                        continue
+                    }
+
+                    results.push({
+                        success: true,
+                        data: {
+                            orderVariant: orderVariant,
+                            logistics: tracker.shipTrackInfo
+                                .map(
+                                    (trackInfo: ShipTrackInfo): OrderVariantLogistic =>
+                                        toOrderVariantLogisticEntity(trackInfo)
+                                )
+                        },
+                        msg: orderTrackers.msg ?? 'Logistics queried successfully',
+                    });
+                } catch (e) {
+                    this.logger.error(`Failed to query logistics for order ${tracker.orderNo}: ${this.formatError(e)}`);
+                }
+            }
+
+            this.logger.log(`Queried logistics for ${results.length} order variant(s)`);
+            return results;
+        } catch (error) {
+            this.logger.error(`Failed to query order logistics: ${this.formatError(error)}`);
+            return []
+        }
     }
 
+    private processOrderSyncResponse(
+        response: QueryResponse<void>,
+        orderVariant: OrderVariant,
+    ): ExternalCommunicationDataResponse<OrderVariant> {
+        if (response.success) {
+            const msg: string = response?.msg
+                ? `${response?.msg}: ${response.subMsg}`
+                : 'Order exported successfully';
+
+            this.logger.log(`Order variant ${orderVariant.id} exported successfully: ${msg}`);
+
+            return {
+                success: true,
+                data: orderVariant,
+                msg,
+            };
+        }
+
+        const msg: string = response?.msg
+            ? `${response?.msg}: ${response.subMsg}`
+            : `Unknown error while exporting order variant: ${orderVariant.id}`;
+
+        this.logger.warn(`Failed to export order variant ${orderVariant.id}: ${msg}`);
+
+        return {
+            success: false,
+            data: orderVariant,
+            msg,
+        };
+    }
 
     private findProductLogistics<T extends string | number>(sku: string, overview: LogisticsOverview<T>[], defaultValue: T) {
         const logistic: LogisticsOverview<T> | undefined = overview.find((price: LogisticsOverview<T>): boolean => price.sku === sku);
@@ -308,6 +523,7 @@ export class GigaB2bService {
             const inventories: QueryResponse<ProductInventory[]> | undefined = await this.api.queryProductInventories(skus);
 
             if (!inventories || !inventories.data.length) {
+                this.logger.warn(`No inventory data returned for ${skus.length} SKU(s)`);
                 return skus.map(
                     (sku: string): LogisticsOverview<number> =>
                         new LogisticsOverview<number>(
@@ -324,7 +540,7 @@ export class GigaB2bService {
                 (inventory: ProductInventory) =>
                     new LogisticsOverview<number>(
                         inventory.sku,
-                        inventory.sellerInventoryInfo.sellerAvailableInventory, // TODO: check which is the most accurate stock value
+                        inventory.sellerInventoryInfo.sellerAvailableInventory,
                         this.context.market,
                         true, // TODO: figure out when stock is not available. Maybe nextArrivalInventory again or error code B50004??
                         LogisticsOverviewAvailability.AVAILABLE
@@ -474,7 +690,7 @@ export class GigaB2bService {
             );
 
         return attachments.filter(
-            (a): a is ExternalCommunicationAttachmentData => a !== undefined,
+            (attachment): attachment is ExternalCommunicationAttachmentData => attachment !== undefined,
         );
     }
 

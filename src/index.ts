@@ -11,7 +11,14 @@ import {DateTime} from "luxon";
 
 DateTime.local();
 
+
 (async () => {
+    const orderNumbers: string[] = [
+        'A000AA6T06',
+        'A000A8LL7J',
+        'A000AA7NXR',
+    ]
+
     const market: Market = new Market();
     market.marketPlace = Marketplaces.GigaB2b
     // market.lastImportedProductsDate = new Date(DateTime.now().toFormat("yyyy-MM-dd"))

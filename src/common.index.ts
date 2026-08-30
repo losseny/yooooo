@@ -166,3 +166,7 @@ export interface ExternalOrderLogisticsDetails {
     orderVariant: OrderVariant;
     logistics: OrderVariantLogistic[];
 }
+
+export function isEmptyOrWhitespace(str: string) {
+    return !str || str.trim() === '';
+}
