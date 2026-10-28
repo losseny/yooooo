@@ -1,0 +1,247 @@
+Last Updated: 10/15/2026 03:28:12
+Sync Drop Shipping Orders
+POST API path:/b2b-overseas-api/v1l/buyer/order/dropShip-sync/vl
+# Update Log
+Date Details
+08/28/2025 New interface added
+09/04/2025 The [hasOtherLabel] field was added to indicate the labeling requirements for labels (except for Brand Label and Packing Slip)
+12/11/2025 The recipient info fields (including: shipName, shipPhone, shipAddress1, shipAddress2, shipCity, shipCountry, shipState, and shipZipCode) must not contain Chinese characters or Arabic Script.
+05/14/2026 For DE/UK Marketplace, shipPhone is now restricted to 6-15 digits.
+05/28/2026 The currencyCode field was added to indicate the currency of order amount and product price.
+08/27/2026 Added support for CAN Marketplace Buyers to import Drop Shipping orders via this interface.
+#® Use Case
+Sync Drop Shipping orders to GIGAB2B.
+# Rate Limiting Rule
+N/A
+#® Header Parameters
+Parameter Name Data Type Required ? Description Default Value
+Content-Type string true application/json
+timestamp string true The time is converted to milliseconds, the number of seconds that have passed since January 1, 1970 (UTC). Only
+requests within 20 minutes are processed.
+nonce string true 10-digit random
+sign string true Signature
+client-id string true Open API account applied by user
+#® Query Parameters
+None
+# Request Body Parameters
+Parameter Name Data Type Required ? Description Default Value
+orderDate string true The order time
+orderNo string true The shipment ID.
+shipName string true Recipient's shipping hame
+shipPhone string true Recipient's shipping phone
+shipEmail string false Recipient's shipping email
+shipAddress1 string true Recipient's shipping address Entry Limit: Within 35 characters
+shipAddress2 string false Spare shipping address Entry Limit: Within 35 characters
+shipCity string true Recipient's shipping city
+shipCountry string true Recipient's shipping country
+shipState string false ShipState is optional for UK/DE Marketplace, and required for US/JP Marketplace.
+shipZipCode string true Recipient's shipping zip code
+hasOtherLabel boolean false Carton labeling service for labels other than Brand Label and Packing Slip. By selecting "true", the order will be
+imported with this service added. Please note uploading the required label files on Shipment Management page is
+required. By selecting "false", this service will not apply.
+shippedDate string false Requested Delivery Date(Only available for the JP Marketplace).Requested Delivery Date(Only available for the JP
+Marketplace)Date Restriction: @For orders uploaded by 11:00 AM (JST), the earliest Requested Delivery Time can be
+selected is the 3rd day from upload time.@For orders uploaded after 11:00 AM (JST), the earliest Requested Delivery
+Time can be selected is the 4th day from upload time.Time period
+options:08:00-12:0014:00-16:0016:00-18:0018:00-20:0019:00-21:00
+orderFrom string false Shipper/Sender: Enter the store name you want printed on shipping label (only applicable to the US. CAN
+Marketplace).
+salesChannel string false Sales Channel. For sales channels not listed in the following options, please select "Other". Options: Wayfair.
+Amazon, Walmart, eBay. HomeDepot. Overstock. NewEgg. Macy's. Rakuten. Yahoo. QOO10. Shopify.
+TARGET. AliExpress. Lowes. SHEIN. Tik Tok, OTTO. TEMU. B&Q.
+ebayTransactionlD string false Record the transaction ID of eBay platform(currently not applicable to the CAN Marketplace)
+orderLines array true Order details
+itemPrice number true The price of product
+qty integer true The quantity of product
+sku string true Item Code on GIGAB2B
+productName string false SKU name
+ebayltemCode string false eBay SKU.when the saleChannel=eBay, required and must be a pure number(currently not applicable to the CAN
+Marketplace)
+amazonOrderltemld string false An Amazon-defined order item identifier.Only support letters, numbers, "and *_" .
+itemTax number false The tax of goods
+itemUnitDiscount number false The discount of goods
+currencyCode string false Currency, options: USD, GBP, EUR, JPY, CAD. Mapped by Buyer account's Marketplace region: US — USD, UK —
+GBP, DE — EUR, JP — JPY, CAN - CAD. If this field is provided, the currency will be verified against the Buyer
+account's Marketplace region; if not provided, the itemPrice or orderTotal input parameter will default to the currency
+for the corresponding Marketplace region.
+brandLabelName string false The brandlabel’'s name
+numberOfLabels integer false The number of the brandlabels
+orderTotal number false Total price of Order
+sellManager string false Sales Manager's name
+shipCompany string false Shipping Company
+customerComments string false Customer remarks
+valueAddedServices object false Value Added Services
+returnLabelService boolean false Whether to purchase the Return Label Service(Only available for the DE Marketplace)
+deliveryService string false Delivery service type of the order. (Only available for the US. CAN Marketplace). Small parcel order: DSR; LTL order:
+NSR, TRHD, ROC and WG.
+® Example Request
+"orderDate": "2025-07-30 12:00:00",
+"orderNo": "DS250731XT025",
+"shipName": "tom",
+"shipPhone": "25432542",
+"shipEmail": "TOM@163.com"”,
+"shipAddress1": "2508 APRIL",
+"shipAddress2": "OK.P",
+"shipCity": "CORRY",
+"shipCountry": "US",
+"shipState": "PA",
+"shipZipCode": "16407",
+"hasOtherLabel": "true",
+"shippedDate": "2025-07-28 12:00:00",
+"orderFrom": "TB store",
+"salesChannel": "WAYFAIR",
+"ebayTransactionID": "",
+"orderLines": [
+{
+"itemPrice": 100,
+"qty": 1,
+"sku": "W10172P199674",
+"productName": "red bed",
+"ebayltemCode": "™",
+"amazonOrderltemlId": "34564567",
+"itemTax": "6",
+"currencyCode": "USD",
+"itemUnitDiscount™: "5",
+"brandLabelName": "",
+"numberOfLabels™:
+}
+I
+"orderTotal": "2000",
+"sellManager": "ZS",
+"shipCompany": "ZS COMPANY",
+"customerComments™: "THIS ORDER IS REQUIRED TO SHIP AS POSSIBLE AS QUICKLY."
+"valueAddedServices": {
+"returnLabelService": false,
+"deliveryService": "DSR"
+}
+}
+# Response Parameters
+Parameter Name Data Type Required ? Description Default Value
+success boolean true Indicates whether the request was successful
+code string true Error code. Both successful and failed requests will include this response.
+data null false Response data
+requestld string true The unique identifier of the request.
+msg string false Error message. The content may be blank for secondary errors.
+subMsg string false Detailed error message description.
+recommend string false Error Diagnostics URL
+#® Example Response
+"success": true,
+"code": "200",
+"data": null,
+"requestld": "21fd1f3b1fb8e22f",
+"msg": "success",
+"subMsg": null,
+"recommend": null
+# Error Code
+Error Code Error Message Error Description Solution Other
+B11002 Invalid data: Format error/Invalid character ~~ orderNo must only contain letters, numbers, - or _.
+length/Value not in enum range/Package
+not in this shipment.
+B11002 Invalid data: Format error/Invalid character ~~ ebayltemCode is illegal, can only be pure numbers
+length/Value not in enum range/Package
+not in this shipment.
+B11002 Invalid data: Format error/Invalid character ~~ The ebayltemCode must be between 1 and 18 characters!
+length/Value not in enum range/Package
+not in this shipment.
+B11002 Invalid data: Format error/Invalid character ~~ ebayTransactionID is illegal, can only be pure numbers
+length/Value not in enum range/Package
+not in this shipment.
+B11002 Invalid data: Format error/Invalid character ~~ The ebayTransactionID must be between 1 and 18 characters!
+length/Value not in enum range/Package
+not in this shipment.
+B11002 Invalid data: Format error/Invalid character ~~ 1.The shipAddress1 in P.O.BOX doesn't support delivery, Please see the instructions. Modify the shipping address and retry the request. Reason: PO BOX addresses are not
+length/Value not in enum range/Package 2.The shipAddress2 in P.O.BOX doesn't support delivery, Please see the instructions. accepted.
+not in this shipment.
+B11002 Invalid data: Format error/Invalid character ~~ The shipping address of this Sales Order is beyond the range of countries/regions
+length/Value not in enum range/Package covered by the VAT exemption policy. For the countries/regions covered, please contact
+not in this shipment. Customer Service for details..
+B11002 Invalid data: Format error/Invalid character ~~ The shipState format is incorrect, or the entered state cannot be delivered to. States within delivery scope: US : AL, AZ, AR, CA, CO, CT, DE, DC, FL, GA, ID, IL, IN,
+length/Value not in enum range/Package 1A, KS, KY, LA, ME, MD, MA, MI, MN, MS, MO, MT, NE, NV, NH, NJ, NM, NY, NC, ND,
+not in this shipment. OH, OK, OR, PA, RI, SC, SD, TN, TX, UT, VT, VA, WA, WV, WI, WY CAN : AB. BC.
+MB. NB. NL. NS. ON. PE. QC. SK
+B11002 Invalid data: Format error/Invalid character ~~ The shipCountry only supports US.
+length/Value not in enum range/Package
+not in this shipment.
+B11002 Invalid data: Format error/Invalid character ~~ The shipCountry only supports CAN or CA or CANADA.
+length/Value not in enum range/Package
+not in this shipment.
+B11002 Invalid data: Format error/Invalid character ~~ The shipCity in P.O.BOX doesn't support delivery, Please see the instructions.
+length/Value not in enum range/Package
+not in this shipment.
+B11002 Invalid data: Format error/Invalid character ~~ The shipZipCode must be 6 characters.
+length/Value not in enum range/Package
+not in this shipment.
+B11002 Invalid data: Format error/Invalid character ~~ The shipZipCode is not supported for delivery.
+length/Value not in enum range/Package
+not in this shipment.
+B11002 Invalid data: Format error/Invalid character  orderFrom must be between 0 and 30 characters!
+length/Value not in enum range/Package
+not in this shipment.
+B11002 Invalid data: Format error/Invalid character ~~ orderFrom must be between 0 and 16 characters!
+length/Value not in enum range/Package
+not in this shipment.
+B11002 Invalid data: Format error/Invalid character ~~ The ShipCountry format is incorrect. Options: US, UK, GB, DE, JP, ES, IT, CAN
+length/Value not in enum range/Package
+not in this shipment.
+B11003 Invalid business access: Account or Brand Labeling Service is temporarily not available for Giga On-Site Sellers.
+service permission invalid/Region
+restriction
+B11003 Invalid business access: Account or "hasOtherLabel" is currently not applicable to the CAN Marketplace.
+service permission invalid/Region
+restriction
+B11003 Invalid business access: Account or Brand Labeling Service is temporarily not available in DE/UK/JP/CAN.
+service permission invalid/Region
+restriction
+B11003 Invalid business access: Account or Return Label Service is only available for drop shipping orders shipped within Germany.
+service permission invalid/Region
+restriction
+B11003 Invalid business access: Account or The Delivery Service is temporarily not available in DE/UK/JP.
+service permission invalid/Region
+restriction
+B11003 Invalid business access: Account or Delivery Service Choose failed: No LTL product in the order, the [{0}] service is not
+service permission invalid/Region supported.
+restriction
+B11003 Invalid business access: Account or Delivery Service Choose failed: The Delivery Service is not selected from the available
+service permission invalid/Region options, please re-select one.
+restriction
+B11003 Invalid business access: Account or Delivery Service Choose failed: The order includes LTL product, DSR service is not
+service permission invalid/Region supported.
+restriction
+B11003 Invalid business access: Account or Delivery Service Choose failed: The Delivery Service is not selected from the available
+service permission invalid/Region options, please re-select one.
+restriction
+B11004 Data not found/duplicate detected. The orderNo already exists.
+B11004 Data not found/duplicate detected. The Item Code does not exist on the B2B Marketplace of the current account country.
+B11002 Invalid data: Format error/Invalid character  orderFrom cannot contain Chinese characters
+length/Value not in enum range/Package
+not in this shipment.
+B11002 Invalid data: Format error/Invalid character ~~ The salesChannel must be between 0 and 50 characters!
+length/Value not in enum range/Package
+not in this shipment.
+B11002 Invalid data: Format error/Invalid character ~~ shipEmail must be between 0 and 90 characters!
+length/Value not in enum range/Package
+not in this shipment.
+B11002 Invalid data: Format error/Invalid character ~~ shipPhone must be between 1 and 45 characters!
+length/Value not in enum range/Package
+not in this shipment.
+B11002 Invalid data: Format error/Invalid character ~~ shipPhone must contain
+length/Value not in enum range/Package 6-15 digits (spaces, hyphens, or plus signs are allowed; total length cannot exceed 25 ch
+not in this shipment. aracters)
+B11002 Invalid data: Format error/Invalid character ~~ shipName must be between 1 and 40 characters!
+length/Value not in enum range/Package
+not in this shipment.
+B11002 Invalid data: Format error/Invalid character ~~ ebayTransactionID is illegal, can only be positive integer.
+length/Value not in enum range/Package
+not in this shipment.
+B11002 Invalid data: Format error/Invalid character ~~ ebayltemCode is illegal, can only be positive integer.
+length/Value not in enum range/Package
+not in this shipment.
+B11002 Invalid data: Format error/Invalid character ~~ The [xxx] field must not contain Chinese characters or Arabic Script.
+length/Value not in enum range/Package
+not in this shipment.
+B11002 Invalid data: Format error/Invalid character ~~ The currencyCode does not match the Marketplace region of Buyer account.
+length/Value not in enum range/Package
+not in this shipment.
+B11002 Invalid data: Format error/Invalid character ~~ For JP Markplace,shipAddress1 must not begin with city, state/province, or postal code.
+length/Value not in enum range/Package
+not in this shipment.

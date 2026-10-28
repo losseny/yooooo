@@ -20,6 +20,9 @@ import {DateTime} from "luxon";
 import {ExternalCommunicationDataResponse} from "./common.index";
 import {MarketConfigEntryStatus} from "./database/entities/enums";
 import {HttpRetryService} from "./infrastructure/http-retry/http-retry.service";
+import * as fs from "fs";
+import * as path from "path";
+import {randomUUID} from "crypto";
 
 DateTime.local();
 
@@ -47,7 +50,7 @@ export class GigaApi extends MarketApiContextInterface {
         this.context = context;
         this.instance = axios.create({
             baseURL: this.context.apiHost,
-            timeout: 15000,
+            timeout: Number(process.env.GIGA_TIMEOUT_MS ?? 15000),
             headers: {Accept: 'application/json'},
         });
 
@@ -57,7 +60,7 @@ export class GigaApi extends MarketApiContextInterface {
 
     public async queryProducts(pageInfo?: PageInfo): Promise<QueryResponse<QueryDataResponse<ProductRecord>> | undefined> {
         const queryProductsParams: QueryProductsBody = {
-            page: pageInfo?.page ? pageInfo.page++ : 1,
+            page: pageInfo?.page ? pageInfo.page + 1 : 1,
             pageSize: pageInfo?.pageSize ?? 200,
             lastUpdatedAfter: DateTime
                 .fromJSDate(this.context.market.lastImportedProductsDate ?? new Date())
@@ -77,9 +80,20 @@ export class GigaApi extends MarketApiContextInterface {
                 queryProductsParams
             );
 
-            if (queryProductsParams.page >= response.data.pageInfo.page) {
-                response.data.pageInfo.end = true;
+            if (!response.success) {
+                this.logger.error(`Failed to query products: ${response.code} ${response.msg} ${response.subMsg ?? ''}`);
+                return undefined;
             }
+
+            // Giga returns pageInfo/records null when there are no (more) results.
+            response.data.records ??= [];
+            response.data.pageInfo ??= {
+                page: queryProductsParams.page,
+                totalPage: 0,
+                pageSize: queryProductsParams.pageSize,
+                totalNum: 0,
+            };
+            response.data.pageInfo.end = response.data.pageInfo.page >= response.data.pageInfo.totalPage;
 
             this.logger.log(
                 `Queried products: page ${response.data.pageInfo.page} returned ` +
@@ -247,7 +261,7 @@ export class GigaApi extends MarketApiContextInterface {
         return this.request('GET', endpoint);
     }
 
-    private async post<B, T>(endpoint: string, body?: B): Promise<QueryResponse<T>> {
+    public async post<B, T>(endpoint: string, body?: B): Promise<QueryResponse<T>> {
         return this.request<T, B>('POST', endpoint, body);
     }
 
@@ -285,14 +299,43 @@ export class GigaApi extends MarketApiContextInterface {
                 })
             );
         } catch (e) {
+            if (axios.isAxiosError(e)) {
+                this.record(method, uri, body, start, e.response?.status, e.response?.headers, e.response?.data ?? e.message);
+            }
             throw this.toGigaApiError(e, uri)
         }
+
+        this.record(method, uri, body, start, response.status, response.headers, response.data);
 
         this.logger.log(
             `GigaApi ${method} ${uri} completed in ${Date.now() - start}ms (HTTP ${response.status})`,
         );
 
         return this.unwrap(response.data, uri)
+    }
+
+    // Writes every request/response pair to GIGA_RECORD_DIR (if set) as raw material for a Giga mock.
+    private record(method: Method, uri: string, body: unknown, start: number, status: number | undefined, headers: unknown, response: unknown): void {
+        const dir: string | undefined = process.env.GIGA_RECORD_DIR;
+        if (!dir) {
+            return;
+        }
+
+        const target: string = path.join(dir, 'raw', uri.replace(/^\/b2b-overseas-api\//, '').replace(/[^\w.-]+/g, '_'));
+        fs.mkdirSync(target, {recursive: true});
+        fs.writeFileSync(
+            path.join(target, `${new Date(start).toISOString().replace(/[:.]/g, '-')}-${randomUUID().slice(0, 8)}.json`),
+            JSON.stringify({
+                method,
+                uri,
+                requestedAt: new Date(start).toISOString(),
+                durationMs: Date.now() - start,
+                request: body ?? null,
+                status: status ?? null,
+                headers: headers ?? null,
+                response,
+            }, null, 2),
+        );
     }
 
     private buildUri(endpoint: string, query: Record<string, string> | undefined): string {

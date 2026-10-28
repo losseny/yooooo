@@ -1,0 +1,160 @@
+Last Updated: 10/20/2026 01:50:10
+Inventory Query
+POST API path:/b2b-overseas-api/v1l/buyer/inventory/quantity/v2
+# Update Log
+Date Details
+09/11/2025 New interface added
+01/08/2026 Query is restricted to the products in Buyer's Saved Items List or products with stockpiled inventory.
+01/10/2026 For DE/UK Self-arranged Shipping Buyers, querying inventory by warehouse is available.
+09/10/2026 For US Drop Shipping Buyers, querying Sellers inventory by warehouse is available. The value is returned via the sellerinventoryDistribution field.
+10/22/2026 Querying shared inventory is supported. For details, see the totalSharedinventory and sharedinventory field descriptions.
+#® Use Case
+Query product's available inventory or Buyer-owned inventory on GIGAB2B by SKU. Product promotional inventory and storage fee are also available for query.
+For US/DE/UK Self-arranged Shipping Buyers, querying inventory by warehouse is available.
+Note: Only the products in Buyer's Saved Items List or products with stockpiled inventory can be accessed.
+# Rate Limiting Rule
+10 requests per 10 seconds
+#® Header Parameters
+Parameter Name Data Type Required ? Description Default Value
+Content-Type string true application/json
+timestamp string true The time is converted to milliseconds, the number of seconds that have passed since January 1, 1970 (UTC). Only
+requests within 20 minutes are processed.
+nonce string true 10-digit random
+sign string true Signature
+client-id string true Open API account applied by user
+#® Query Parameters
+None
+# Request Body Parameters
+Parameter Name Data Type Required ? Description Default Value
+skus string[] true Item Code on GIGAB2B, max 200 Item Codes per request
+® Example Request
+{
+"skus": [
+# Response Parameters
+Parameter Name Data Type Required ? Description Default Value
+success boolean true Whether the request is successful
+code string true Error code. Both successful and failed requests will include this response.
+data array false Response data
+sku string false Item Code on GIGAB2B
+buyerlnventoryinfo object false Buyer-owned inventory information
+totalBuyerAvailablelnventory integer false Quantity of fully-paid inventory, excluding Buyer-locked and shared inventory.
+totalMargininventory integer false Quantity of Margin Agreement inventory with unpaid due amount
+totalFuturelnventory integer false Quantity of Future Goods Agreement inventory with unpaid due amount
+totalSharedInventory integer false Quantity of available shared inventory, including the inventory from both Self-
+arranged Shipping and Drop Shipping accounts.
+totalSystemLockedInventory integer false Quantity of inventory locked by the system
+totalBuyerLockedInventory integer false Quantity of inventory locked by Buyer
+buyerlnventoryDistribution array false Warehouse distribution of Buyer's inventory
+warehouseCode string false Warehouse code
+buyerAvailablelnventory integer false Quantity of fully-paid inventory, excluding Buyer-locked and shared inventory for specific warehouse
+margininventory integer false Quantity of Margin Agreement inventory with unpaid due amount for specific warehouse
+sharedinventory integer false Quantity of available shared inventory, including the inventory from Self-arranged Shipping account only.
+systemLockedInventory integer false Indicate the inventory already assigned to Shipments, blocked by RMA requests and inventory loss, cannot be used
+for specific warehouse
+buyerLockedInventory integer false Indicate the inventory locked by Buyer, cannot be used during the locking period for specific warehouse. Buyer can
+click on the number on Inventory Management — Inventory Lockup page to open the Inventory Details window and
+then unlock the inventory.
+totalStorageFee number false Total storage fees incurred as of yesterday, including the amount that has been paid already in debt statement.
+unpaidStorageFee number false Total unpaid storage fee as of yesterday
+currency string false The currency of Storage Fee
+sellerinventorylnfo object false Seller inventory information
+sellerAvailablelnventory integer false Quantity of inventory available for purchase
+discountAvailablelnventory integer false Quantity available for discounted products during limited-time promotions
+sellerinventoryDistribution array false Product inventory distribution. This field returns a value only for US/UK/DE/CAN Marketplace Self-arranged Shipping
+Buyers and US Marketplace Drop Shipping Buyers.
+warehouseCode string false Warehouse code
+availableQtyMin integer false Minimum inventory quantity requirement for purchase
+availableQtyMax integer false Maximum inventory quantity available for purchase
+nextArrivallnventory object false Expected arrival time for next incoming shipment, if available.
+nextArrivalBegin string false Expected arrival time for next incoming shipment if available. nextArrivalBegin is the earliest estimated arrival time.
+nextArrivalEnd string false Expected arrival time for next incoming shipment if available. nextArrivalEnd is the latest estimated arrival time.
+nextArrivalQtyMin integer false The minimum quantity of the expected inventory for the next arrival
+nextArrivalQtyMax integer false The maximum quantity of the expected inventory for the next arrival
+requestld string true The unique identifier of the request.
+msg string false Error message. The content may be blank for secondary errors.
+subMsg string false Detailed error message description.
+recommend string false Error Diagnostics URL
+#® Example Response
+{
+"success": true,
+"code": "200",
+"data": [
+{
+"sku": "AAAA123",
+"buyerinventorylinfo™: {
+"totalBuyerAvailablelnventory™: 19,
+“totalMargininventory": 0,
+“"totalFuturelnventory™: 0,
+“"totalSharedInventory": 3,
+"totalSystemLockedInventory": 4,
+"totalBuyerLockedInventory": 0,
+"buyerlinventoryDistribution™: [
+{
+"warehouseCode": "B215-FL1",
+"buyerAvailablelnventory": 5,
+"margininventory": 0,
+“sharedinventory": 0,
+"systemLockedInventory™: 1,
+"buyerLockedInventory": 0
+h
+"warehouseCode": "B215-CZ1",
+"buyerAvailablelnventory": 10,
+"margininventory": 0,
+“sharedinventory": 0,
+"systemLockedInventory™: 3,
+"buyerLockedInventory": 0
+h
+"warehouseCode": "B215-WAL1",
+"buyerAvailablelnventory": 4,
+"margininventory": 0,
+“sharedinventory": 0,
+"systemLockedInventory": 0,
+"buyerLockedInventory": 0
+}
+1
+"totalStorageFee": 3018,
+"unpaidStorageFee": 616.75,
+"currency": "USD"
+h
+"sellerinventorylnfo": {
+"sellerAvailablelnventory": 129,
+"discountAvailablelnventory": 0,
+"sellerinventoryDistribution™: [
+{
+"warehouseCode": "NJ1",
+"availableQtyMin": 30,
+"availableQtyMax": 34
+h
+{
+"warehouseCode": "CA2",
+"availableQtyMin": 100,
+"availableQtyMax": 129
+h
+{
+"warehouseCode": "B215-WAL1",
+"availableQtyMin": 2,
+"availableQtyMax": 2
+}
+1
+"nextArrivallnventory": {
+"nextArrivalBegin™: "2026-10-14",
+"nextArrivalEnd": "2026-10-21",
+"nextArrivalQtyMin™: 100,
+"nextArrivalQtyMax": 199
+}
+}
+8
+"requestld": "91e339eff49ab9c2",
+"msg": "success",
+"subMsg": null,
+"recommend": "http://t2.yzc.orsd.tech/index.php?route=information/open_api/index&doc_id=320"
+# Error Code
+Error Code Error Message Error Description Solution Other
+B50004 Data not found/duplicate detected. SKU unavailable on GIGAB2B
+B50001 Required fields cannot be blank. The SKU must be provided.
+B50002 Invalid data: Format error/Invalid character ~~ A single query cannot exceed 200 SKUs
+length/Value not in enum range/Package
+not in this shipment.
+B50003 Invalid business access: Account or Request failed. The SKU is not added to Saved Items List or has no stockpiled inventory.
+service permission invalid/Region
+restriction

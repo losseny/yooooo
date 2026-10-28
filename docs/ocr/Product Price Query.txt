@@ -1,0 +1,231 @@
+Last Updated: 08/19/2026 02:45:58
+Product Price Query
+POST API path:/b2b-overseas-api/v1l/buyer/product/price/vl
+# Update Log
+Date Details
+08/28/2025 New interface added
+01/08/2026 Query is restricted to the products in Buyer's Saved Items List or products with stockpiled inventory.
+01/15/2026 1. The logic for the price, exclusivePrice, and discountedPrice fields was optimized. 2. New fields added: purchaseLimit, srpPrice, limit, promotionFrom (within the spotPrice array), and promotionTo (within the spotPrice array). Refer to
+each field's description for its specific use case.
+04/02/2026 The internationalFulfillmentFees field was added to return Pan-European fulfillment fee for products in the UK/DE Marketplace.
+05/14/2026 The exclusivePriceExpireTime was added to return the expiration time of the exclusive price set for the corresponding product.
+07/30/2026 For products on the DE Marketplace, the remoteShippingFee field was added to return the fulfillment fee for shipments to domestic remote areas, and the remotelntlFulfillmentFee field for Pan-European remote areas.
+08/20/2026 In the rebatesPrice array, the minRebatePrice and maxRebatePrice fields will be removed, and the rebateAmount and rebatePrice fields will be added. The data structure will be adjusted to return rebate prices by tier.
+#® Use Case
+Query product prices by SKU.
+Note: Only the products in Buyer's Saved Items List or products with stockpiled inventory can be accessed.
+# Rate Limiting Rule
+10 requests per 10 seconds
+#® Header Parameters
+Parameter Name Data Type Required ? Description Default Value
+Content-Type string true application/json
+timestamp string true The time is converted to milliseconds, the number of seconds that have passed since January 1, 1970 (UTC). Only
+requests within 20 minutes are processed.
+nonce string true 10-digit random
+sign string true Signature
+client-id string true Open API account applied by user
+#® Query Parameters
+None
+# Request Body Parameters
+Parameter Name Data Type Required ? Description Default Value
+skus string[] true The list of SKU. The number of SKUs cannot exceed 200.
+® Example Request
+{
+"skus": [
+# Response Parameters
+Parameter Name Data Type Required ? Description Default Value
+success boolean true Indicates whether the request was successful
+code string true Error code. Both successful and failed requests will include this response.
+data array false Response data
+sku string true
+currency string true Currency: US USD, UK GBP, Germany EUR, Japan JPY
+price number true Original standard price. This price will be applied to the transaction when there is no exclusive price (exclusivePrice =
+null) and no discounted price (discountedPrice = null).
+shippingFee number false Fulfillment fee for the shipment sent to standard areas, the Fulfillment Fee includes the Shipping and Packing Fee.
+remoteShippingFee number false Fulfillment fee for the shipment sent to remote areas, the Fulfillment Fee includes the Shipping and Packing Fee.
+shippingFeeRange object false The fulfillment fee range of SKU. This field is applicable to orders that include LTL product, or that use Amazon
+prefential shipping fee, or that incur remote area surcharge. When the products in the shipment apply the same
+fulfillment quote or the same shipping service, minAmount=maxAmount.
+minAmount number false minimum fulfillment fee
+maxAmount number false maximum fulfillment fee
+internationalFulfillmentFees array false Fulfillment fee for the shipment from the current Marketplace region to other countries.
+internationalFulfillmentFee number false Fulfillment fee for the shipment from the current Marketplace region to other countries, including shipping and packing
+fees.
+remotelntlFulfillmentFee number false Fulfillment fee for the shipment from the current Marketplace region to remote areas in destination countries, including
+shipping and packing fees.
+countryName string false Ship to country
+countryCode string false 2-letter country code
+exclusivePrice number false If this field has a value, it will be applied to the transaction instead of the original standard price (price).
+exclusivePriceExpireTime string false Expiration time of the exclusive price. Time zone: GMT-8.
+discountedPrice number false Promotional discounted price. If this field has a value, it will be applied to the transaction instead of the original standar
+d price (price).
+promotionFrom string false Promotion start time if there is an ongoing promotion. Time zone: GMT-8.
+promotionTo string false Promotion end time if there is an ongoing promotion. Time zone: GMT-8.
+purchaseLimit string false Purchase quantity limit for promotional inventory, indicating the maximum quantity a single Buyer may purchase.
+mapPrice number false Minimum advertised pricing (MAP) is the lowest price a retailer can advertise the product for sale.
+srpPrice string false Suggested Retail Price (SRP), indicating the Seller's recommended price for retailers to sell the product.
+futureMapPrice number false Future MAP
+effectMapTime string false Effect Time of the Future MAP. Time zone: GMT-8.
+sellerinfo object false Return the seller information in array form.
+sellerStore string false Store name
+sellerType string false Show seller type: ONSITE/GENERAL
+gigalndex string false seller giga index
+sellerCode string false seller code
+sellerReturnRate string false seller return rate
+sellerReturnApprovalRate string false seller return approval rate
+sellerMessageResponseRate string false seller message response rate
+spotPrice array false Return the spot price and corresponding price range in array form.
+minQuantity integer false
+maxQuantity integer false
+price number false Tiered price. If there is no discounts for tiered price (discountedSpotPrice = null), this price will be applied to Tiered Pri
+ce transaction.
+discountedSpotPrice number false Discounted tiered price. If this field has a value, it will be applied to Tiered Price transaction instead of the tiered price (
+the price field within the spotPrice array).
+promotionFrom string false Promotion start time for Tiered Price. Time zone: GMT-8
+promotionTo string false Promotion end time for Tiered Price. Time zone: GMT-8
+limit integer false The maximum quantity a single Buyer can purchase at the discounted Tiered Price (discountedSpotPrice).
+rebatesPrice array false Return the rebate price and corresponding price range in array form.
+minQuantity integer false
+maxQuantity integer false
+price number false Agreed Price (Unit)
+days integer false
+rebateAmount number false Rebate Amount(Unit)
+rebatePrice number false Price after Rebate (Unit)
+marginPrice array false Return the margin price and corresponding price range in array form.
+minQuantity integer false
+maxQuantity integer false
+price number false
+skuAvailable boolean false Show if this seller's SKU is available for user. If false, the product price will be null.
+futurePrice array false Return the future price and corresponding price range in array form.
+deliveryDate string false
+totalQuantityAvailable integer false
+depositPercentage string false
+directSettlement object false
+unitPrice number false
+minEstimatedOceanFreight number false
+maxEstimatedOceanFreight number false
+marginTransaction object false
+unitPrice number false
+minEstimatedOceanFreight number false
+maxEstimatedOceanFreight number false
+requestld string true The unique identifier of the request.
+msg string false Error message. The content may be blank for secondary errors.
+subMsg string false Detailed error message description.
+recommend string false Error Diagnostics URL
+#® Example Response
+{
+"success": false,
+"code": ",
+"data": [
+{
+"currency": ",
+"price": null,
+"shippingFee": null,
+"remoteShippingFee": null,
+"shippingFeeRange™: {
+"minAmount": null,
+"maxAmount": null
+h
+"internationalFulfillmentFees": [
+{
+"internationalFulfillmentFee": null,
+"remotelntlFulfillmentFee": null,
+"countryName": "",
+"countryCode™:
+}
+8
+"exclusivePrice": null,
+"exclusivePriceExpireTime": "",
+"discountedPrice": null,
+"promotionFrom™: ""
+"promotionTo":
+"purchaseLimit": 0,
+"mapPrice": null,
+"srpPrice": null,
+"futureMapPrice™: null,
+"effectMapTime™: "",
+"sellerInfo": {
+"sellerStore™: "™"
+"sellerType™: {},
+"gigalndex
+“sellerCode": "",
+"sellerReturnRate": "™,
+"sellerReturnApprovalRate": ™,
+"sellerMessageResponseRate":
+h
+"spotPrice": [
+{
+"minQuantity": 0,
+"maxQuantity": 0,
+"price": null,
+"discountedSpotPrice": null,
+"promotionFrom™: ™,
+"promotionTo": "™,
+"limit": 0
+}
+8
+"rebatesPrice": [
+{
+"days": 0,
+"minQuantity": 0,
+"maxQuantity": 0,
+"price": null,
+"rebateAmount": null,
+"rebatePrice": null
+}
+8
+"marginPrice": [
+{
+"minQuantity": 0,
+"maxQuantity": 0,
+"price": null
+}
+8
+"skuAvailable": false,
+"futurePrice™: [
+{
+"deliveryDate™: "",
+"totalQuantityAvailable": 0,
+"depositPercentage":
+"directSettlement": {
+"unitPrice": null,
+"minEstimatedOceanFreight": null,
+"maxEstimatedOceanFreight": null
+h
+"marginTransaction": {
+"unitPrice": null,
+"minEstimatedOceanFreight": null,
+"maxEstimatedOceanFreight": null
+}
+}
+8
+"sku":
+8
+"requestld": "™,
+"subMsg"
+"recommend": ""
+# Error Code
+Error Code Error Message Error Description Solution Other
+200 Request success.
+401 Interface not available. Retry with an alternative available interface, or contact Marketplace Online Service
+404 The path does not exist. Check the interface path
+500 System exception, pleases contact online Try again later and contact Marketplace Online Service
+service
+400001 Too many requests. Rate limit exceeded Review rate limiting rules in the document
+400003 Parameter format or syntax error, please
+check and try again.
+400004 Invalid sign Verify the signature and its components
+400005 Sign required Add signature to request header
+400006 Timestamp required Add timestamp to request header
+400007 Invalid timestamp format Verify the timestamp
+400008 Request expired: Timestamp exceeds 20- Initiate the request again
+minute validity window.
+400009 Nonce required Add a nonce to request header
+4000010 Invalid nonce
+B20001 Required fields cannot be blank. the list of sku can not be empty
+B20002 Invalid data: Format error/Invalid character the limit of SKUs's size is 200
+length/Value not in enum range/Package
+not in this shipment.
+B20003 Invalid business access: Account or Request failed. The SKU is not added to Saved Items List or has no stockpiled inventory.
+service permission invalid/Region
+restriction

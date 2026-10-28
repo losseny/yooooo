@@ -1,0 +1,83 @@
+Last Updated: 02/27/2026 19:02:14
+Warehouse Address Query
+POST API path:/b2b-overseas-api/vl/buyer/warehouse/query-address/vl
+# Update Log
+Date Details
+08/28/2025 New interface added
+#® Use Case
+Query the GIGA warehouse addresses by warehouse code, including Seller-owned warehouses. Warehouse codes can be obtained via the Inventory Query interface.
+# Rate Limiting Rule
+20 requests per 10 seconds
+#® Header Parameters
+Parameter Name Data Type Required ? Description Default Value
+Content-Type string true application/json
+timestamp string true The time is converted to milliseconds, the number of seconds that have passed since January 1, 1970 (UTC). Only
+requests within 20 minutes are processed.
+nonce string true 10-digit random
+sign string true Signature
+client-id string true Open API account applied by user
+#® Query Parameters
+None
+# Request Body Parameters
+Parameter Name Data Type Required ? Description Default Value
+warehouseCodes string[] true GIGA warehouse code. Max 200 warehouse codes per query, ans use comma (,) to separate multiple entries
+® Example Request
+{
+"warehouseCodes": |
+"CA3"
+]
+}
+# Response Parameters
+Parameter Name Data Type Required ? Description Default Value
+success boolean true Indicates whether the request was successful
+code string true Error code. Both successful and failed requests will include this response.
+data array false Response data
+warehouseCode string false GIGA warehouse code
+address string false Warehouse address
+country string false The country where the warehouse is located
+state string false The state where the warehouse is located
+city string false The city where the warehouse is located
+zipCode string false The Zip Code of the warehouse address
+requestld string true The unique identifier of the request.
+msg string false Error message. The content may be blank for secondary errors.
+subMsg string false Detailed error message description.
+recommend string false Error Diagnostics URL
+#® Example Response
+{
+"success": true,
+"code": "200",
+"data": [
+{
+"warehouseCode": "CA3",
+"address": "10850 Business Dr",
+"country": "US",
+"state": "CA",
+"city": "Fontana",
+"zipCode™: "92337"
+}
+8
+"requestld": "efcc2ecf1d790227",
+"msg": "success",
+"subMsg": null,
+"recommend": null
+# Error Code
+Error Code Error Message Error Description Solution Other
+200 Request success.
+401 Interface not available. Retry with an alternative available interface, or contact Marketplace Online Service
+404 The path does not exist. Check the interface path
+500 System exception, pleases contact online Try again later and contact Marketplace Online Service
+service
+400001 Too many requests. Rate limit exceeded Review rate limiting rules in the document
+400003 Parameter format or syntax error, please
+check and try again.
+400004 Invalid sign Verify the signature and its components
+400005 Sign required Add signature to request header
+400006 Timestamp required Add timestamp to request header
+400007 Invalid timestamp format Verify the timestamp
+400008 Request expired: Timestamp exceeds 20- Initiate the request again
+minute validity window.
+400009 Nonce required Add a nonce to request header
+4000010 Invalid nonce
+B52004 Data not found/duplicate detected. Warehouse code error, data not found.
+B52002 Request body parameter validation Maximum 200 warehouseCodes per request. Please remove extra warehouseCodes an
+d try again.

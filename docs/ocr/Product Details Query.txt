@@ -1,0 +1,282 @@
+Last Updated: 09/16/2026 18:28:09
+Product Details Query
+POST API path:/b2b-overseas-api/v1l/buyer/product/detailinfo/vl
+# Update Log
+Date Details
+08/28/2025 New interface added
+12/18/2025 The toBePublished field was renamed to skuAvailable as a product availability flag, returning "true" if the product is available, or "false" otherwise.
+04/16/2026 The brand, material and main color of products and the protection service rate can be queried. For details, please refer to the new fields: brandinfo, mainMaterial, mainColor, and protectionServiceRates.
+04/21/2026 The afterSalesPolicy field was added to return the URL for After-sales Policy details.
+05/21/2026 The productVideoUrl field was added to return the URL of the product showcase video. The isLGP field was added on the DE Marketplace to indicate whether the product has an LGP badge.
+07/02/2026 The assembledLengthUnit and assembledWeightUnit fields were added to return the length and weight units for the assembled product.
+07/16/2026 The returnRate field was added to return the product-level RMA rate.
+08/27/2026 The categoryPath field was added to return the full path of category, and the associateProductinfo array was added to return itemCode and name for variants.
+09/17/2026 1. For DE Marketplace Drop Shipping Buyers, the remoteAreaPostalCodes array was added to return the remote area postal code (shipToPostCodes) for the shipToCountry, based on the shipFromCountry. 2. For DE/UK Marketplace
+Self-arranged Shipping Buyers, the isMsf field was added to indicate whether the product is eligible for the MSF program.
+#® Use Case
+Query product details by SKU (Item Code) or product name. Only the products in Buyer's Saved Items List or products with stockpiled inventory can be accessed.
+# Rate Limiting Rule
+20 requests per 10 seconds
+#® Header Parameters
+Parameter Name Data Type Required ? Description Default Value
+Content-Type string true application/json
+timestamp string true The time is converted to milliseconds, the number of seconds that have passed since January 1, 1970 (UTC). Only
+requests within 20 minutes are processed.
+nonce string true 10-digit random
+sign string true Signature
+client-id string true Open API account applied by user
+#® Query Parameters
+None
+# Request Body Parameters
+Parameter Name Data Type Required ? Description Default Value
+skus string[] false The list of SKU. The number of SKUs cannot exceed 200.Exactly one of the skus and productNames fields must be
+provided as the request parameter.
+productNames string[] false The list of productName. The number of productNames cannot exceed 200. The number of SKUs cannot exceed
+200.Exactly one of the skus and productNames fields must be provided as the request parameter.
+® Example Request
+{
+"skus": [
+"W10172S00004",
+"W10172S00020",
+"B215P204169"
+# Response Parameters
+Parameter Name Data Type Required ? Description Default Value
+success boolean true Indicates whether the request was successful
+code string true Error code. Both successful and failed requests will include this response.
+data array false Response data
+sku string false Item Code on GIGAB2B. Represents Item Code of a combo item when comboFlag is true.
+mpn string false Manufacturer Part Number
+weightUnit string false weight unit Ib
+lengthUnit string false length unit in
+weight number false Weight of the product package. Unit: See [weightUnit] field.
+length number false Length of the product package. Unit: See [lengthUnit] field.
+width number false Width of the product package. Unit: See [lengthUnit] field.
+height number false Height of the product package. Unit: See [lengthUnit] field.
+weightKg number false Weight of the product package. Unit: kg.
+lengthCm number false Length of the product package. Unit: cm.
+widthCm number false Width of the product package. Unit: cm.
+heightCm number false Height of the product package. Unit: cm.
+productName string false product name
+description string false product description
+characteristics string[] false product feature
+mainMaterial string false Product material
+mainColor string false Product main color
+imageUrls string[] false URL of product images (excluding main image)
+mainimageUrl string false URL of product main image
+productVideoUrl string false URL of product video
+categoryCode integer false category code
+category string false category
+categoryPath string false Full path of category
+isMsf boolean false Whether the product is eligible for Amazon MSF program.
+comboFlag boolean false combo flag
+overSizeFlag boolean false over size flag
+isLGP boolean false Igp flag (DE)
+partFlag boolean false part flag
+upc string false upc
+customized string false customized Returns ‘yes/no’
+placeOfOrigin string false place of origin
+lithiumBatteryContained string false lithium battery contained
+assembledLength string false assembled length Returns ‘Not Applicable’ if left blank
+assembledWidth string false assembled width Returns ‘Not Applicable’ if left blank
+assembledHeight string false assembled height Returns ‘Not Applicable’ if left blank
+assembledWeight string false assembled weight Returns ‘Not Applicable’ if left blank
+assembledLengthUnit string false The unit of length for the assembled product
+assembledWeightUnit string false The unit of weight for the assembled product
+customList array false Seller custom field list
+customName string false Seller field name
+customValue string false Seller field value
+customType string false Seller field type
+associateProductList string[] false
+associateProductinfo array false Variant information
+itemCode string false Item code of variant
+name string false Name of variant
+brandinfo array false Product brand information
+brandName string false Brand name
+brandPictures string false Brand image
+brandintro string false Brand introduction
+certificationList array false
+url string false
+title string false
+fileUrls string[] false
+videoUrls string[] false
+afterSalesPolicy string false URL for After-sales Policy details
+protectionServiceRates array false Protection service rates
+protectionService string false Protection service type
+rate string false Protection service rate
+attributes object false Product Attributes
+key string false
+whiteLabel string false white label Yes/No/™"
+combolnfo array false Return the dimensions, weight and MPN in details of the combo item
+weight number false Weight of the sub-item package. Unit: See [weightUnit] field.
+length number false Length of the sub-item package. Unit: See [lengthUnit] field.
+width number false Width of the sub-item package. Unit: See [lengthUnit] field.
+height number false Height of the sub-item package. Unit: See [lengthUnit] field.
+weightKg number false Weight of the sub-item package. Unit: kg.
+lengthCm number false Length of the sub-item package. Unit: cm.
+widthCm number false Width of the sub-item package. Unit: cm.
+heightCm number false Height of the sub-item package. Unit: cm.
+sku string false Item Code of the sub-item.
+qty integer false Quantity of the sub-item.
+firstArrivalDate string false The date when the product's first batch of inventory arrived at the warehouse. Format: yyyy-MM-dd. Note: The
+previous name is “firstAvailableDate”
+returnRate string false Product Return Rate
+remoteAreaPostalCodes array false Remote Area Postal Codes Info. Returns an empty array when unavailable.
+shipFromCountry string false 2-letter country code for the ship-from country.
+postalCodesList array false Remote Area Postal Codes List.
+shipToCountry string false 2-letter country code for the ship-to country.
+shipToPostCodes string false Remote area postal codes of the ship-to country.
+sellerinfo object false seller information
+sellerStore string false Store name
+sellerType string false Show seller type: ONSITE/GENERAL
+gigalndex string false seller giga index
+sellerCode string false seller code
+sellerReturnRate string false seller return rate
+sellerReturnApprovalRate string false seller return approval rate
+sellerMessageResponseRate string false seller message response rate
+skuAvailable boolean false If the product is available, the value will be "true", otherwise "false".
+unAvailablePlatform array false Unavailable platform info.
+id string false Unavailable platform id
+name string false Unavailable platform name
+newArrivalFlag boolean false new arrival flag
+requestld string true The unique identifier of the request.
+msg string false Error message. The content may be blank for secondary errors.
+subMsg string false Detailed error message description.
+recommend string false Error Diagnostics URL
+#® Example Response
+{
+"success": true,
+"code": "200",
+"data": [
+{
+"sku": "W10172S00004",
+"mpn”: "W10172S00004",
+"weightUnit": "lb",
+"lengthUnit": "in",
+"weight": null,
+"length": null,
+"width": null,
+"height": null,
+"weightKg": null,
+"lengthCm": null,
+"widthCm™: null,
+"heightCm": null,
+"productName": "test name”,
+"description": "",
+"characteristics": [
+8
+"imageUrls": [
+"https://btbfile.oss-cn-hongkong.aliyuncs.com/image/wkseller/45184/e25bh33e9931630a89389b9bb114169a6.jpg?X-cc=20&xX-cu=1524&x-ct=1754463600&x-cs=698efc31509ed46a80493a3f9cad4ef7",
+"https://btbfile.oss-cn-hongkong.aliyuncs.com/image/wkseller/45184/c407{72f367e083214c98146c868d1e7.png?X-cc=20&x-cu=1524&x-ct=1754463600&x-cs=fe2e0624eefd4e35a08223clee5ae2ca”,
+"https://btbfile.oss-cn-hongkong.aliyuncs.com/image/wkseller/45184/46db23999c4af0f12b832955ed0ce500.png?x-cc=20&X-cu=15248&x-ct=1754463600&x-cs=6dbd8d55ec2175c5632d9f340d1eb7h3",
+"https://btbfile.oss-cn-hongkong.aliyuncs.com/image/wkseller/45184/bb2d89eb5b7flaec442alee5eb66d1fe.jpg?x-cc=20&x-cu=1524&x-ct=1754463600&x-cs=d528chf81217c5h1le135ee77a0faf0d5",
+"https://btbfile.oss-cn-hongkong.aliyuncs.com/image/wkseller/45184/8a8c536e921368173a7bd2e62b910356.png?x-cc=20&X-cu=15248&Xx-ct=1754463600&x-cs=db5735c0e3519b5703eac97cl1f2f7fa2"
+8
+"mainimageUrl": "https://btbfile.oss-cn-hongkong.aliyuncs.com/image/wkseller/45184/e25b33e9931630a89389b9bb114169a6.jpg?X-cc=20&x-cu=1524&x-ct=1754463600&x-cs=698efc31509ed46a80493a3f9cad4ef7",
+"productVideoUrI": "https://btbfile.oss-cn-hongkong.aliyuncs.com/image/wkseller/45184/e25bh33e9931630a89389b9bb114169a6.jpg?X-cc=20&x-cu=1524&x-ct=1754463600&x-cs=698efc31509ed46a80493a3f9cad4ef7",
+"categoryCode": 10015,
+"category": "Beds, Frames & Bases",
+"categoryPath": "™,
+"isMsf": false,
+"comboFlag": true,
+"overSizeFlag": false,
+"isLGP": false,
+"partFlag": false,
+"customized": "No",
+"placeOfOrigin™: ",
+"lithiumBatteryContained": "No",
+"assembledLength": "Not Applicable",
+"assembledWidth": "Not Applicable”,
+"assembledHeight": "Not Applicable”,
+"assembledWeight": "Not Applicable”,
+"assembledLengthUnit": ™,
+"assembledWeightUnit": ",
+"customList™: [],
+"associateProductList": [],
+"associateProductinfo”: [
+{
+"itemCode": ",
+"name":
+}
+8
+"certificationList": [],
+"fileUrls": [],
+"videoUrls": [],
+"afterSalesPolicy™": "",
+"attributes": {
+"Main Color": "Alabaster",
+"Main Material": "ABS+PC"
+h
+"whiteLabel": "No",
+"combolnfo": [
+{
+"weight": 21,
+"length": 21,
+"width": 21,
+"height": 21,
+"weightKg": 9.5254,
+"lengthCm": 53.34,
+"widthCm™: 53.34,
+"heightCm": 53.34,
+"sku": "W10172P197236",
+"qty": 2
+}
+8
+"firstArrivalDate": "2024-11-01",
+"returnRate": "Low",
+"remoteAreaPostalCodes": [
+{
+"shipFromCountry": "DE",
+"postalCodesList": [
+{
+"shipToCountry": "DE",
+"shipToPostCodes": "12345"
+}
+|
+}
+8
+"sellerInfo": {
+"sellerStore™: "W10172/E5E LF xx",
+"sellerType": "GENERAL",
+"gigalndex™: "66.53",
+"sellerCode": "W10172",
+"sellerReturnRate": "Low",
+"sellerReturnApprovalRate": "Moderate",
+"sellerMessageResponseRate": "N/A"
+h
+"skuAvailable": false,
+"unAvailablePlatform": [],
+"newArrivalFlag": false
+}
+8
+"requestld": "flbdaOb69e47175a",
+"msg": "success",
+"subMsg": null,
+"recommend": null
+# Error Code
+Error Code Error Message Error Description Solution Other
+200 Request success.
+401 Interface not available. Retry with an alternative available interface, or contact Marketplace Online Service
+404 The path does not exist. Check the interface path
+500 System exception, pleases contact online Try again later and contact Marketplace Online Service
+service
+400001 Too many requests. Rate limit exceeded Review rate limiting rules in the document
+400003 Parameter format or syntax error, please
+check and try again.
+400004 Invalid sign Verify the signature and its components
+400005 Sign required Add signature to request header
+400006 Timestamp required Add timestamp to request header
+400007 Invalid timestamp format Verify the timestamp
+400008 Request expired: Timestamp exceeds 20- Initiate the request again
+minute validity window.
+400009 Nonce required Add a nonce to request header
+4000010 Invalid nonce
+B20002 Invalid data: Format error/Invalid character the limit of SKUs's size is 200
+length/Value not in enum range/Package
+not in this shipment.
+B20002 Invalid data: Format error/Invalid character ~~ Maximum 200 productNames per request.
+length/Value not in enum range/Package
+not in this shipment.
+B20004 Data not found/duplicate detected. The productNames unavailable on GIGA B2B
+B20002 Invalid data: Format error/Invalid character ~~ Exactly one of the skus and productNames fields must be provided as the request
+length/Value not in enum range/Package parameter.
+not in this shipment.

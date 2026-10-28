@@ -13,3 +13,5 @@ yarn-error.log*
 src/env.ts
 /.idea
 /dist
+/data
+/data-record.log
