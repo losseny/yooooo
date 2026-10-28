@@ -38,7 +38,7 @@ export class HttpRetryService {
             `refresh amount ${reservoirRefreshAmount ?? 'none'}, ` +
             `max ${maxConcurrent ?? 'unlimited'} concurrent, ` +
             `${maxRetries ?? 0} retries on 429`,
-            context,
+            context ?? HttpRetryService.name,
         );
     }
 
@@ -71,7 +71,7 @@ export class HttpRetryService {
      * Prefers the Retry-After header, falls back to exponential backoff (1s, 2s, 4s, ...).
      */
     private calculateRetryDelay(error: AxiosError, attempt: number): number {
-        const retryAfter = error.response?.headers['retry-after'];
+        const retryAfter: string = error.response?.headers['retry-after'];
 
         if (retryAfter) {
             const seconds = Number(retryAfter);

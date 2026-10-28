@@ -47,8 +47,10 @@ export class GigaB2bService {
         private readonly context: GigaB2bContext,
         private readonly httpRetry: HttpRetryService,
     ) {
-        this.api = new GigaApi(context);
-        this.httpRetry.configure();
+        this.httpRetry.configure({
+            context: GigaB2bService.name
+        });
+        this.api = new GigaApi(context, httpRetry);
     }
 
 
@@ -169,19 +171,19 @@ export class GigaB2bService {
     async importGivenMarketSkus(skus: string[]): Promise<ProductCategoryBundle[]> {
         this.logger.log(`Importing ${skus.length} specific SKUs from market ${this.context.market.marketPlace}`);
 
-        // TODO: Maybe pagination??
         const result: ProductCategoryBundle[] = [];
-        const totalPages: number = skus.length / 200;
+        const totalPages: number = Math.ceil(skus.length / 200);
         let page: number = 1;
 
-        while (page < totalPages) {
-            const productDetails: QueryResponse<ProductDetail[]> | undefined = await this.api.queryProductsDetails(skus);
+        while (page <= totalPages) {
+            const pageSkus: string[] = skus.slice((page - 1) * 200, page * 200);
+            const productDetails: QueryResponse<ProductDetail[]> | undefined = await this.api.queryProductsDetails(pageSkus);
             if (!productDetails || productDetails.data.length === 0) {
                 this.logger.warn(`No product details returned for the ${skus.length} requested SKUs`);
                 return [];
             }
 
-            this.logger.log(`Mapped ${productDetails.data.length} product(s) for the requested SKUs (page ${page}/${Math.ceil(totalPages)})`);
+            this.logger.log(`Mapped ${productDetails.data.length} product(s) for the requested SKUs (page ${page}/${totalPages})`);
             result.push(...this.mapMarketProductsToBundles(productDetails.data))
             page++;
         }
@@ -294,6 +296,7 @@ export class GigaB2bService {
             try {
                 const shipmentOrder: ShipmentOrder = new ShipmentOrder(orderVariant);
 
+                console.log(JSON.stringify(shipmentOrder, null, 2));
                 let response: QueryResponse<void> = await this.api.exportShipmentOrder(shipmentOrder,);
 
                 const result: ExternalCommunicationDataResponse<OrderVariant> =
@@ -328,7 +331,7 @@ export class GigaB2bService {
 
             const statuses: QueryResponse<OrderStatusInfo[]> | undefined = await this.api.queryOrderStatus(orderVariants.map((orderVariant: OrderVariant): string => orderVariant.order.order_number));
 
-            if (!statuses || statuses.data.length === 0) {
+            if (!statuses || !statuses.data || statuses.data.length === 0) {
                 this.logger.warn('No order status data returned; no statuses validated');
                 return []
             }
@@ -435,7 +438,7 @@ export class GigaB2bService {
             const results: ExternalCommunicationDataResponse<ExternalOrderLogisticsDetails>[] = [];
 
             const orderTrackers: QueryResponse<OrderTrackInfo[]> | undefined = await this.api.queryOrderLogistics(orderVariants.map((orderVariant: OrderVariant): string => orderVariant.order.order_number));
-            if (!orderTrackers || orderTrackers.data.length === 0) {
+            if (!orderTrackers || !orderTrackers.data || orderTrackers.data.length === 0) {
                 this.logger.warn('No order tracking data returned; no logistics queried');
                 return []
             }
@@ -540,7 +543,7 @@ export class GigaB2bService {
                 (inventory: ProductInventory) =>
                     new LogisticsOverview<number>(
                         inventory.sku,
-                        inventory.sellerInventoryInfo.sellerAvailableInventory,
+                        inventory.sellerInventoryInfo?.sellerAvailableInventory ?? 0,
                         this.context.market,
                         true, // TODO: figure out when stock is not available. Maybe nextArrivalInventory again or error code B50004??
                         LogisticsOverviewAvailability.AVAILABLE

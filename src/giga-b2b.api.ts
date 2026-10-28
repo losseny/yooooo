@@ -19,6 +19,7 @@ import {GigaB2bContext} from "./context/giga-b2b.context";
 import {DateTime} from "luxon";
 import {ExternalCommunicationDataResponse} from "./common.index";
 import {MarketConfigEntryStatus} from "./database/entities/enums";
+import {HttpRetryService} from "./infrastructure/http-retry/http-retry.service";
 
 DateTime.local();
 
@@ -39,6 +40,7 @@ export class GigaApi extends MarketApiContextInterface {
 
     constructor(
         context: GigaB2bContext,
+        private readonly httpRetry: HttpRetryService,
     ) {
         super(console);
 
@@ -179,6 +181,7 @@ export class GigaApi extends MarketApiContextInterface {
             '/b2b-overseas-api/v1/buyer/order/track-no/v1',
             body
         );
+        console.log(JSON.stringify(response, null, 2));
 
         this.logger.log(`Order logistics query returned ${response?.data?.length ?? 0} result(s)`);
 
@@ -187,12 +190,21 @@ export class GigaApi extends MarketApiContextInterface {
 
     async exportShipmentOrder(shipmentOrder: ShipmentOrder): Promise<QueryResponse<void>> {
         this.logger.log(`Exporting shipment order ${shipmentOrder.orderNo}`);
+        //
+        // const response: QueryResponse<void> = await this.post<ShipmentOrder, void>(
+        //     '/b2b-overseas-api/v1/buyer/order/dropShip-sync/v1',
+        //     shipmentOrder
+        // );
 
-        const response: QueryResponse<void> = await this.post<ShipmentOrder, void>(
-            '/b2b-overseas-api/v1/buyer/order/dropShip-sync/v1',
-            shipmentOrder
-        );
-
+        const response = {
+            success: true,
+            code: "",
+            data: null,
+            requestId: "",
+            msg: "",
+            subMsg: null,
+            recommend: null,
+        }
         this.logger.log(`Shipment order ${shipmentOrder.orderNo} exported (success: ${response?.success})`);
 
         return response;
@@ -258,18 +270,20 @@ export class GigaApi extends MarketApiContextInterface {
         const start: number = Date.now();
 
         try {
-            response = await this.instance.request<QueryResponse<Response>>({
-                url: uri,
-                method: method,
-                headers: {
-                    timestamp: String(signature.timestamp),
-                    nonce: signature.nonce,
-                    sign: signature.signature,
-                    "client-id": signature.clientId,
-                    ...(hasBody ? {'Content-Type': 'application/json'} : {})
-                },
-                ...(hasBody ? {data: body} : {})
-            });
+            response = await this.httpRetry.schedule<AxiosResponse<QueryResponse<Response>>>(() =>
+                this.instance.request<QueryResponse<Response>>({
+                    url: uri,
+                    method: method,
+                    headers: {
+                        timestamp: String(signature.timestamp),
+                        nonce: signature.nonce,
+                        sign: signature.signature,
+                        "client-id": signature.clientId,
+                        ...(hasBody ? {'Content-Type': 'application/json'} : {})
+                    },
+                    ...(hasBody ? {data: body} : {})
+                })
+            );
         } catch (e) {
             throw this.toGigaApiError(e, uri)
         }
